@@ -1,0 +1,173 @@
+{
+  "ValidationSettings": {
+    "ValidModes": ["source", "binary", "ignore"],
+    "ValidBooleans": ["true", "false"],
+    "AllValidProperties": [
+      "version.binary", "devs.version.binary", "mode", "mode.devs",
+      "fork", "branch", "tag", "tests.unit"
+    ],
+    "ValidGlobalProperties": ["version.binary", "devs.version.binary", "recipients"],
+    "RequiredProjects": ["framework", "repository", "appengine"],
+    "AllProjects": ["framework", "repository", "olap", "modeling", "depmservice", "consolidation", "appengine", "designer", "dashboards", "appstudio", "officeinteg", "administration", "content", "deployment"],
+    "RequiredProperties": ["mode"],
+    "RestrictedBranches": {
+      "content": ["stage"]
+    },
+    "FeatureBranchPattern": "dev/DEPM-",
+    "CommentPrefix": "#",
+    "MainFork": "main",
+    "TestSuitePattern": "^[a-zA-Z0-9]+\\.run$",
+    "TagPattern": "^Build_\\d+\\.\\d+\\.\\d+\\.\\d+$",
+    "ForkPatterns": [
+      "^[a-zA-Z0-9._-]+$",
+      "^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+$"
+    ],
+    "VersionPatterns": ["^\\d+$", "latest_integration", "latest_stage"],
+    "RepositoryBasePath": "repos/main",
+    "RepositoryBaseUrl": "ssh://git@oxfordssh.awsdev.infor.com:7999/DEPM/Platform",
+    "EnableAutoCloning": true,
+    "ForkRepositoryBasePath": "repos/forks",
+    "DefaultBuildMode": "source",
+    "GlobalSection": "global",
+    "TestsSection": "tests",
+    "ExcludedProjectPatterns": ["-backup", "central"],
+    "OptionalProjects": ["designer"],
+    "BuildNumberRanges": {
+      "master": { "min": 1, "max": 9999 },
+      "integration": { "min": 10000, "max": 19999 },
+      "stage": { "min": 20000, "max": 29999 },
+      "development": { "min": 30000, "max": 39999 },
+      "local": { "min": 50000, "max": 99999 }
+    },
+    "VersionRange": {
+      "MinVersion": 10000,
+      "MaxVersion": 39999
+    }
+  },
+  "Rules": {
+    "BranchOrTagRule": {
+      "Enabled": true,
+      "ErrorMessages": {
+        "BothBranchAndTag": "Project '{0}' cannot have both branch and tag - choose one",
+        "NeitherBranchNorTag": "Project '{0}' must have either branch or tag"
+      },
+      "BranchProperty": "branch",
+      "TagProperty": "tag"
+    },
+    "AllProjectsSectionRule": {
+      "Enabled": true,
+      "ErrorMessage": "Missing project section: '{0}' must be included (can be commented out)",
+      "KeyValueSeparator": "=",
+      "PropertySeparator": "."
+    },
+    "BooleanValidationRule": {
+      "Enabled": true,
+      "ErrorMessage": "Invalid boolean '{0}'. Valid values: {1}",
+      "ApplicableProperties": ["tests.unit", "tests.integration"]
+    },
+    "BranchValidationRule": {
+      "Enabled": true,
+      "ErrorMessage": "Branch name cannot be empty",
+      "ApplicableProperty": "branch",
+      "EnableGitValidation": "true"
+    },
+    "ContentProjectRule": {
+      "Enabled": true,
+      "ErrorMessage": "{0} project cannot use '{1}' branch",
+      "ApplicableProperty": "branch"
+    },
+    "DefaultModeRule": {
+      "Enabled": true
+    },
+    "FeatureBranchForkRule": {
+      "Enabled": true,
+      "WarningMessage": "Project '{0}' uses feature branch '{1}' but no fork specified - consider using a fork",
+      "BranchProperty": "branch",
+      "ForkProperty": "fork"
+    },
+    "FeatureBranchNamingRule": {
+      "Enabled": true,
+      "WarningMessage": "Feature branch '{0}' should follow naming convention 'dev/DEPM-{{number}}-{{description}}'",
+      "ApplicableProperty": "branch"
+    },
+    "BuildNumberRangeRule": {
+      "Enabled": true,
+      "WarningMessage": "Build number {0} for {1} is outside known ranges",
+      "ApplicableProperties": ["version.binary", "devs.version.binary"]
+    },
+    "IntegrationTestsRule": {
+      "Enabled": true,
+      "WarningMessage": "Unknown integration test suite '{0}'",
+      "ApplicableProperty": "tests.*.run"
+    },
+    "ForkValidationRule": {
+      "Enabled": true,
+      "ErrorMessages": {
+        "InvalidRepositoryName": "Fork repository name '{0}' must match project name '{1}'",
+        "InvalidFormat": "Invalid fork format '{0}'. Expected fork name, 'owner/repository', or '{1}'"
+      },
+      "ApplicableProperty": "fork",
+      "ForkSeparator": "/"
+    },
+    "GlobalVersionRule": {
+      "Enabled": true,
+      "ErrorMessage": "Global version ({0}.version.binary or {0}.devs.version.binary) is required when at least one project uses binary mode",
+      "ModeProperties": ["mode", "mode.devs"],
+      "BinaryModeValue": "binary",
+      "GlobalVersionProperties": ["version.binary", "devs.version.binary"]
+    },
+    "ModeValidationRule": {
+      "Enabled": true,
+      "ErrorMessage": "Invalid mode '{0}'. Valid modes: {1}",
+      "ApplicableProperties": ["mode", "mode.devs"]
+    },
+    "RequiredSectionsRule": {
+      "Enabled": false,
+      "ErrorMessages": {
+        "MissingProject": "Missing required project section: {0}",
+        "MissingProperty": "Project '{0}' missing required property: {1}",
+        "MissingBranchOrTag": "Project '{0}' must have either branch or tag"
+      },
+      "BranchOrTagProperties": ["branch", "tag"]
+    },
+    "TagValidationRule": {
+      "Enabled": true,
+      "ErrorMessages": {
+        "EmptyTag": "Tag name cannot be empty",
+        "InvalidFormat": "Invalid tag format '{0}'. Expected format: Build_X.X.X.X"
+      },
+      "ApplicableProperty": "tag",
+      "EnableGitValidation": "true"
+    },
+    "TestsProjectRule": {
+      "Enabled": true,
+      "WarningMessage": "{0} project should use branches instead of tags - consider using branch for better test practices",
+      "ApplicableProperty": "tag"
+    },
+    "VersionValidationRule": {
+      "Enabled": true,
+      "ErrorMessage": "Invalid version format '{0}'. Expected number or 'latest_*'",
+      "ApplicableProperties": ["version.binary", "devs.version.binary"],
+      "RegexPrefix": "^"
+    }
+  },
+  "KnownForks": {
+    "dasa.petrezselyova": ["dashboards", "modeling"],
+    "ivan.rebo": ["administration", "appengine", "appstudio", "depmservice", "consolidation", "dashboards", "framework", "modeling", "officeinteg", "olap", "repository"],
+    "oliver.schmidt": ["framework", "olap"],
+    "petr.novacek": ["administration", "appengine", "appstudio", "depmservice", "consolidation", "dashboards", "deployment", "framework", "modeling", "officeinteg", "olap", "repository"],
+    "stefan.kiel": ["framework", "olap"],
+    "vit.holy": ["appstudio", "framework", "officeinteg"],
+    "vojtech.lahoda": ["appengine", "consolidation", "depmservice", "framework", "modeling"]
+  },
+  "MainRepositories": ["framework", "repository", "olap", "modeling", "depmservice", "consolidation", "appengine", "designer", "dashboards", "appstudio", "officeinteg", "administration", "content", "deployment"],
+  "IntegrationTestSuites": ["AdhocWidget", "AdministrationService", "AppEngineService", "AppsProvisioning", "AppStudioService", "BusinessModelingServiceSet1", "BusinessModelingServiceSet2", "ConsolidationService", "ContentIntegration", "DashboardsService", "dEPMAppsUpdate", "dEPMRegressionSet1", "dEPMRegressionSet2", "dEPMSmoke", "EPMWorkflow", "FarmCreation", "FarmUpgrade", "MultiFarm", "OfficeIntegrationService", "OlapService", "OlapAPI", "SelfService", "TenantClone", "WorkforceBudgetingSet1", "WorkforceBudgetingSet2"],
+  "GitBaseUrl": "ssh://git@oxfordssh.awsdev.infor.com:7999/DEPM/Platform",
+  "ChainTypes": ["master", "integration", "stage", "feature"],
+  "BranchPatterns": {
+    "master": "^(master|releases/.*/master)$",
+    "integration": "^integration$",
+    "stage": "^(stage|releases/.*/stage)$",
+    "feature": "^dev/DEPM-\\d+"
+  }
+}

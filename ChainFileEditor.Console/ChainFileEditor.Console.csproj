@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>ChainEditor.ConsoleApp</RootNamespace>
+    <AssemblyName>ChainFileEditor.Console</AssemblyName>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ChainFileEditor.Core\ChainFileEditor.Core.csproj" />
+  </ItemGroup>
+</Project>

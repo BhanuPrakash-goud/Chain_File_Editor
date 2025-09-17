@@ -1,0 +1,207 @@
+{
+  "ValidationRules": [
+    {
+      "RuleId": "ModeRequired",
+      "Name": "Mode Required Rule",
+      "Description": "Every project must have a mode specified",
+      "IsEnabled": true,
+      "Severity": "Error",
+      "RuleType": "PropertyRequired",
+      "Configuration": {
+        "PropertyName": "mode",
+        "ErrorMessage": "Mode is required for project '{SectionName}'"
+      }
+    },
+    {
+      "RuleId": "ModeValidation",
+      "Name": "Mode Validation Rule", 
+      "Description": "Mode must be one of the allowed values",
+      "IsEnabled": true,
+      "Severity": "Error",
+      "RuleType": "PropertyValueValidation",
+      "Configuration": {
+        "PropertyName": "mode",
+        "AllowedValues": ["source", "binary", "ignore"],
+        "ErrorMessage": "Invalid mode '{PropertyValue}' for project '{SectionName}'. Allowed values: {AllowedValues}"
+      }
+    },
+    {
+      "RuleId": "BranchOrTag",
+      "Name": "Branch Or Tag Rule",
+      "Description": "Project cannot have both branch and tag specified",
+      "IsEnabled": true,
+      "Severity": "Error",
+      "RuleType": "MutuallyExclusive",
+      "Configuration": {
+        "Properties": ["branch", "tag"],
+        "ErrorMessage": "Project '{SectionName}' cannot have both branch and tag specified"
+      }
+    },
+    {
+      "RuleId": "BranchOrTagRequired",
+      "Name": "Branch Or Tag Required Rule",
+      "Description": "Every project must have either branch or tag",
+      "IsEnabled": true,
+      "Severity": "Error",
+      "RuleType": "RequiredOneOf",
+      "Configuration": {
+        "Properties": ["branch", "tag"],
+        "ErrorMessage": "Project '{SectionName}' must have either branch or tag"
+      }
+    },
+    {
+      "RuleId": "RequiredProjects",
+      "Name": "Required Projects Rule",
+      "Description": "Essential projects must be present in chain",
+      "IsEnabled": true,
+      "Severity": "Error",
+      "RuleType": "RequiredSections",
+      "Configuration": {
+        "RequiredSections": ["framework", "repository", "olap", "modeling", "depmservice", "consolidation", "appengine", "dashboards", "appstudio", "officeinteg", "administration", "content", "deployment"],
+        "ErrorMessage": "Required project '{SectionName}' is missing from chain"
+      }
+    },
+    {
+      "RuleId": "ForkValidation",
+      "Name": "Fork Validation Rule",
+      "Description": "Fork must follow owner/repository format",
+      "IsEnabled": true,
+      "Severity": "Error",
+      "RuleType": "RegexValidation",
+      "Configuration": {
+        "PropertyName": "fork",
+        "Pattern": "^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+$",
+        "ErrorMessage": "Fork '{PropertyValue}' for project '{SectionName}' must follow 'owner/repository' format"
+      }
+    },
+    {
+      "RuleId": "ContentNotStage",
+      "Name": "Content Not Stage Rule",
+      "Description": "Content project cannot use stage branch",
+      "IsEnabled": true,
+      "Severity": "Error",
+      "RuleType": "ConditionalValidation",
+      "Configuration": {
+        "SectionName": "content",
+        "PropertyName": "branch",
+        "ForbiddenValues": ["stage"],
+        "ErrorMessage": "Content project cannot use 'stage' branch"
+      }
+    },
+    {
+      "RuleId": "TestsPreferBranch",
+      "Name": "Tests Prefer Branch Rule",
+      "Description": "Tests project should use branches instead of tags",
+      "IsEnabled": true,
+      "Severity": "Warning",
+      "RuleType": "ConditionalValidation",
+      "Configuration": {
+        "SectionName": "tests",
+        "PropertyName": "tag",
+        "WarningCondition": "HasValue",
+        "ErrorMessage": "Tests project should use branches instead of tags for better testing practices"
+      }
+    },
+    {
+      "RuleId": "DevModeOverride",
+      "Name": "Dev Mode Override Rule",
+      "Description": "Warns about development mode overrides without base mode",
+      "IsEnabled": true,
+      "Severity": "Warning",
+      "RuleType": "DependentProperty",
+      "Configuration": {
+        "DependentProperty": "mode.devs",
+        "RequiredProperty": "mode",
+        "ErrorMessage": "Project '{SectionName}' has mode.devs but no base mode specified"
+      }
+    },
+    {
+      "RuleId": "GlobalVersionWhenBinary",
+      "Name": "Global Version When Binary Rule",
+      "Description": "Global version required when any project uses binary mode",
+      "IsEnabled": true,
+      "Severity": "Error",
+      "RuleType": "GlobalCondition",
+      "Configuration": {
+        "Condition": "AnyProjectHasPropertyValue",
+        "PropertyName": "mode",
+        "PropertyValue": "binary",
+        "RequiredGlobalProperty": "global.version.binary",
+        "ErrorMessage": "Global version is required when any project uses binary mode"
+      }
+    },
+    {
+      "RuleId": "VersionRange",
+      "Name": "Version Range Rule",
+      "Description": "Version numbers must be within the configured range",
+      "IsEnabled": true,
+      "Severity": "Warning",
+      "RuleType": "VersionRangeValidation",
+      "Configuration": {
+        "MinVersion": 10000,
+        "MaxVersion": 30000,
+        "ErrorMessage": "Version {VersionValue} is outside the valid range ({MinVersion}-{MaxVersion})"
+      }
+    },
+    {
+      "RuleId": "CommentedOutSection",
+      "Name": "Commented Out Section Rule",
+      "Description": "Identifies commented configuration sections",
+      "IsEnabled": true,
+      "Severity": "Warning",
+      "RuleType": "CommentedSectionValidation",
+      "Configuration": {
+        "ErrorMessage": "Section '{SectionName}' is commented out and may need review"
+      }
+    },
+    {
+      "RuleId": "FeatureForkRecommendation",
+      "Name": "Feature Fork Recommendation Rule",
+      "Description": "Recommends forks for feature branches",
+      "IsEnabled": true,
+      "Severity": "Warning",
+      "RuleType": "ConditionalValidation",
+      "Configuration": {
+        "PropertyName": "branch",
+        "PatternMatch": "dev/DEPM-",
+        "RequiredProperty": "fork",
+        "ErrorMessage": "Feature branch '{PropertyValue}' should consider using a fork repository"
+      }
+    },
+    {
+      "RuleId": "GitRepositoryValidation",
+      "Name": "Git Repository Validation Rule",
+      "Description": "Validates Git repository accessibility",
+      "IsEnabled": false,
+      "Severity": "Warning",
+      "RuleType": "GitValidation",
+      "Configuration": {
+        "ErrorMessage": "Git repository for '{SectionName}' may not be accessible"
+      }
+    },
+    {
+      "RuleId": "ProjectNaming",
+      "Name": "Project Naming Rule",
+      "Description": "Validates project names follow naming conventions",
+      "IsEnabled": true,
+      "Severity": "Warning",
+      "RuleType": "RegexValidation",
+      "Configuration": {
+        "PropertyName": "_sectionName",
+        "Pattern": "^[a-z][a-z0-9-]*[a-z0-9]$",
+        "ErrorMessage": "Project name '{SectionName}' should follow naming convention (lowercase, alphanumeric with hyphens)"
+      }
+    },
+    {
+      "RuleId": "VersionConsistency",
+      "Name": "Version Consistency Rule",
+      "Description": "Ensures version consistency across projects",
+      "IsEnabled": true,
+      "Severity": "Warning",
+      "RuleType": "VersionConsistencyValidation",
+      "Configuration": {
+        "ErrorMessage": "Version inconsistency detected between related projects"
+      }
+    }
+  ]
+}

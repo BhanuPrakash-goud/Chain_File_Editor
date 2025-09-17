@@ -1,0 +1,29 @@
+{
+  "UI": {
+    "WindowSettings": {
+      "WindowState": "Maximized",
+      "StartPosition": "CenterScreen",
+      "FormBorderStyle": "Sizable",
+      "MinimumSize": {
+        "Width": 1200,
+        "Height": 800
+      }
+    },
+    "Colors": {
+      "Background": "#F5F6FA",
+      "Primary": "#007BFF",
+      "Success": "#28A745", 
+      "Warning": "#FFC107",
+      "Danger": "#DC3545",
+      "Secondary": "#6C757D",
+      "Purple": "#6F42C1"
+    }
+  },
+  "FileFilters": {
+    "ChainFiles": "Chain files (*.properties;*.chain.json)|*.properties;*.chain.json|Properties files (*.properties)|*.properties|All files (*.*)|*.*",
+    "PropertiesFiles": "Chain files (*.properties)|*.properties|All files (*.*)|*.*"
+  },
+  "DefaultPaths": {
+    "WorkingDirectory": "C:\\ChainFileEditor\\Tests\\Chains"
+  }
+}
