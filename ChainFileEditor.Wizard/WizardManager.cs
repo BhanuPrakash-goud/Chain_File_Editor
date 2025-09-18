@@ -61,19 +61,18 @@ namespace ChainFileEditor.Wizard
         private void ShowMainMenu()
         {
             try { Console.Clear(); } catch { }
-            Console.WriteLine("╔═════════════════════════════════════════════════════════════════════════════╗");
-            Console.WriteLine("║                        [36mChain File Editor Setup Wizard[0m                        ║");
-           // Console.WriteLine("║                     [32mWelcome to d/EPM Platform Configuration[0m                   ║");
-            Console.WriteLine("╠═════════════════════════════════════════════════════════════════════════════╣");
-            Console.WriteLine("║  [33m▶[0m  validate     - Validate existing chain configuration files        ║");
-            Console.WriteLine("║  [33m▶[0m  rebase       - Update version numbers across projects            ║");
-            Console.WriteLine("║  [33m▶[0m  create       - Create new feature chain configuration           ║");
-            Console.WriteLine("║  [33m▶[0m  reorder      - Reorder projects to match template structure      ║");
-            Console.WriteLine("║  [33m▶[0m  gui          - Launch graphical user interface                  ║");
-            Console.WriteLine("║  [31m▶[0m  exit         - Exit the wizard                                 ║");
-            Console.WriteLine("╚═════════════════════════════════════════════════════════════════════════════╝");
+            Console.WriteLine("╔═══════════════════════════════════════════════════════════════════╗");
+            Console.WriteLine("║               Chain File Editor Setup Wizard                      ║");
+            Console.WriteLine("╠═══════════════════════════════════════════════════════════════════╣");
+            Console.WriteLine("║    validate     - Validate existing chain configuration files     ║");
+            Console.WriteLine("║    rebase       - Update version numbers across projects          ║");
+            Console.WriteLine("║    create       - Create new feature chain configuration          ║");
+            Console.WriteLine("║    reorder      - Reorder projects to match template structure    ║");
+            Console.WriteLine("║    gui          - Launch graphical user interface                 ║");
+            Console.WriteLine("║    exit         - Exit the wizard                                 ║");
+            Console.WriteLine("╚═══════════════════════════════════════════════════════════════════╝");
             Console.WriteLine();
-            Console.Write("[36mchain-wizard>[0m ");
+            Console.Write("chain-wizard> ");
         }
 
         private int GetUserChoice()
@@ -103,9 +102,9 @@ namespace ChainFileEditor.Wizard
                 if (int.TryParse(input, out int choice) && choice >= 0 && choice <= 5)
                     return choice;
                 
-                Console.WriteLine($"[31m✗ Unknown command: '{input}'[0m");
-                Console.WriteLine("[33mValid commands: validate, rebase, create, reorder, gui, exit (or 1-5, 0)[0m");
-                Console.Write("[36mchain-wizard>[0m ");
+                Console.WriteLine($"Unknown command: '{input}'");
+                Console.WriteLine("Valid commands: validate, rebase, create, reorder, gui, exit (or 1-5, 0)");
+                Console.Write("chain-wizard> ");
             }
         }
         

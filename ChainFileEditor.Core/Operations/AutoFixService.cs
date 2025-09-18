@@ -62,6 +62,8 @@ namespace ChainFileEditor.Core.Operations
                         return FixVersionRange(chain, issue.SectionName);
                     case "FeatureForkRecommendation":
                         return FixFeatureForkRecommendation(chain, issue.SectionName);
+                    case "DevModeValidation":
+                        return FixInvalidDevMode(chain, issue.SectionName);
                     default:
                         return false;
                 }
@@ -409,6 +411,25 @@ namespace ChainFileEditor.Core.Operations
             // Validate created section meets business rules
             ValidateCreatedSection(newSection);
             return newSection;
+        }
+
+        private bool FixInvalidDevMode(ChainModel chain, string sectionName)
+        {
+            if (string.IsNullOrEmpty(sectionName)) return false;
+            
+            var section = chain.Sections?.FirstOrDefault(s => s.Name.Equals(sectionName, StringComparison.OrdinalIgnoreCase));
+            if (section?.Properties != null)
+            {
+                var devMode = section.Properties.GetValueOrDefault("mode.devs", "");
+                var validDevModes = new[] { "binary", "ignore", "source" };
+                
+                if (!string.IsNullOrEmpty(devMode) && !validDevModes.Contains(devMode, StringComparer.OrdinalIgnoreCase))
+                {
+                    section.Properties["mode.devs"] = "binary";
+                    return true;
+                }
+            }
+            return false;
         }
 
         private void ValidateCreatedSection(Section section)

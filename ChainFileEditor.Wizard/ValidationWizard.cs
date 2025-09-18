@@ -61,6 +61,15 @@ namespace ChainFileEditor.Wizard
                     {
                         ShowFixSuggestions(report);
                     }
+                    
+                    var fixableErrors = report.Issues.Where(i => i.Severity == ValidationSeverity.Error && i.IsAutoFixable).ToList();
+                    if (fixableErrors.Any())
+                    {
+                        if (PromptForConfirmation($"\nAuto-fix {fixableErrors.Count} fixable errors?"))
+                        {
+                            ApplyAutoFixes(chain, fixableErrors, filePath);
+                        }
+                    }
                 }
 
                 Console.WriteLine("\nPress any key to continue...");
@@ -168,6 +177,36 @@ namespace ChainFileEditor.Wizard
                 "GlobalVersionWhenBinary" => "Add global.version.binary property when using binary mode",
                 _ => "Check documentation for this validation rule"
             };
+        }
+        
+        private void ApplyAutoFixes(ChainModel chain, List<ValidationIssue> fixableErrors, string filePath)
+        {
+            try
+            {
+                var autoFixService = new AutoFixService();
+                Console.WriteLine("\n[33m▶ Applying auto-fixes...[0m");
+                var fixedCount = autoFixService.ApplyAutoFixes(chain, fixableErrors);
+
+                var writer = new ChainFileWriter();
+                writer.WritePropertiesFile(filePath, chain);
+
+                Console.WriteLine($"[32m✓ Fixed {fixedCount} issues[0m");
+                
+                // Re-validate
+                var parser = new ChainFileParser();
+                var rules = ValidationRuleFactory.CreateAllRules();
+                var validator = new ChainValidator(rules);
+                var finalChain = parser.ParsePropertiesFile(filePath);
+                var finalReport = validator.Validate(finalChain);
+                var remainingErrors = finalReport.Issues.Count(i => i.Severity == ValidationSeverity.Error);
+                
+                Console.WriteLine($"  Remaining errors: {remainingErrors}");
+                Console.WriteLine($"  Final status: {(remainingErrors == 0 ? "[32mVALID[0m" : "[33mNEEDS ATTENTION[0m")}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[31m✗ Auto-fix failed: {ex.Message}[0m");
+            }
         }
     }
 }
