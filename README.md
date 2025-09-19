@@ -25,16 +25,17 @@ The editor supports the complete d/EPM build chain ecosystem including master, i
 ### Key Features
 
 - **Chain File Validation**: Comprehensive validation with 16+ business rules aligned with d/EPM build process
-- **Feature Chain Creation**: GUI-based creation following documented feature chain patterns
+- **Enhanced Auto-Fix**: Intelligent automatic resolution of validation issues with proper project ordering
+- **Feature Chain Creation**: Streamlined GUI and wizard-based creation with improved user experience
 - **Build Number Validation**: Validates build numbers against documented ranges (master: 1-9999, integration: 10000-19999, stage: 20000-29999, development: 30000-39999)
-- **Integration Test Configuration**: Support for all documented integration test suites
+- **Integration Test Configuration**: Support for all documented integration test suites with selective configuration
 - **Version Management**: Bulk version updates across projects with proper dependency handling
 - **Branch/Mode Management**: Project-specific branch and mode configuration following Git branch patterns
-- **Fork Management**: Support for feature development in forks with proper validation
+- **Fork Management**: Support for feature development in forks with proper validation and known fork suggestions
 - **Configuration-Driven**: JSON-based configuration matching build orchestrator requirements
-- **Multi-Interface**: Both WinForms GUI and Console applications
+- **Multi-Interface**: WinForms GUI, Console application, and Interactive Wizard
 - **Automated Testing**: 50+ unit tests covering all major components
-- **Auto-Fix Functionality**: Automatic resolution of common validation issues
+- **Clean File Generation**: Generates minimal chain files with only selected properties (no commented alternatives)
 - **Project Order Management**: Maintains proper project ordering according to template structure
 
 ## Architecture
@@ -100,10 +101,11 @@ Command-line interface for validation and rebase operations.
 Interactive console wizard for guided chain file operations.
 
 **Wizards:**
-- ValidationWizard: Guided validation process
+- ValidationWizard: Guided validation process with integrated auto-fix options
 - RebaseWizard: Interactive version updates
-- FeatureChainWizard: Step-by-step feature chain creation
+- FeatureChainWizard: Enhanced step-by-step feature chain creation with project selection and fork management
 - ReorderWizard: Project reordering to match template
+- AutoFixWizard: Dedicated wizard for applying automatic fixes to validation issues
 
 ### ChainFileEditor.Tests
 Comprehensive test suite with 50+ unit tests covering all major functionality.
@@ -170,10 +172,12 @@ Creates new feature chain files with proper formatting and business rules compli
 Automatically resolves validation issues while maintaining proper project order and structure.
 
 **Key Features:**
-- Fixes missing projects in correct template order
-- Resolves validation rule violations
-- Maintains existing valid content
-- Applies smart defaults for missing properties
+- Fixes missing projects in correct template order using ChainReorderService
+- Resolves all validation rule types with appropriate defaults
+- Maintains existing valid content through hybrid file writing approach
+- Applies smart defaults: "source" for mode, "integration" for branch, "20013" for versions
+- Handles invalid development mode overrides
+- Integrates seamlessly with validation workflow
 
 #### ChainReorderService
 Reorders chain file sections to match the template structure without affecting valid content.
@@ -244,17 +248,17 @@ administration → content → deployment → tests
 
 #### MainForm Features
 - **File Selection Panel**: Global file selection across all operations
-- **Validation Panel**: Comprehensive validation with summary and analysis
-- **Feature Chain Panel**: GUI-based feature chain creation
+- **Enhanced Validation Panel**: Integrated summary and analysis display with auto-fix integration
+- **Feature Chain Panel**: GUI-based feature chain creation with improved workflow
 - **Rebase Panel**: Version update management
 - **Branch/Mode/Test Panels**: Configuration management
-- **Auto-Fix Integration**: One-click issue resolution
+- **One-Click Auto-Fix**: Seamless integration of automatic issue resolution
 
 ### Console Application (`ChainFileEditor.Console`)
 Command-line interface with colored output and detailed reporting.
 
 ### Wizard Application (`ChainFileEditor.Wizard`)
-Interactive console wizard with step-by-step guidance for all operations.
+Interactive console wizard with step-by-step guidance for all operations, featuring clean interface without ANSI colors and enhanced user experience.
 
 ## File Formats
 
@@ -335,9 +339,17 @@ writer.WritePropertiesFile("example.properties", chain);
 ### Feature Chain Creation Example
 
 ```csharp
-// Create a new feature chain using the wizard
+// Create a new feature chain using the enhanced wizard
 var wizard = new FeatureChainWizard();
-wizard.Execute(); // Interactive creation process
+wizard.Execute(); // Interactive creation with project selection, fork management, and integration tests
+```
+
+### Auto-Fix Wizard Example
+
+```csharp
+// Use the dedicated auto-fix wizard
+var autoFixWizard = new AutoFixWizard();
+autoFixWizard.Execute(); // Step-by-step auto-fixing process
 ```
 
 ## Development Guidelines

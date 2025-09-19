@@ -9,6 +9,8 @@ namespace ChainFileEditor.Core.Operations
 {
     public sealed class ChainFileWriter
     {
+        private static readonly string[] ProjectOrder = { "framework", "repository", "olap", "modeling", "depmservice", "consolidation", "appengine", "designer", "dashboards", "appstudio", "officeinteg", "administration", "content", "deployment", "tests" };
+        private static readonly string[] PropertyOrder = { "mode", "mode.devs", "fork", "branch", "tag", "tests.unit" };
         public void WritePropertiesFile(string filePath, ChainModel chain)
         {
             if (!string.IsNullOrEmpty(chain.RawContent))
@@ -41,13 +43,12 @@ namespace ChainFileEditor.Core.Operations
             // If property doesn't exist, add it in correct order within the section
             var sectionName = propertyKey.Split('.')[0];
             var propertyName = propertyKey.Substring(sectionName.Length + 1);
-            var propertyOrder = new[] { "mode", "mode.devs", "fork", "branch", "tag", "tests.unit" };
-            var targetPropertyIndex = Array.IndexOf(propertyOrder, propertyName);
+            var targetPropertyIndex = Array.IndexOf(PropertyOrder, propertyName);
             
             if (targetPropertyIndex >= 0)
             {
                 // Find where to insert based on property order
-                int insertIndex = FindPropertyInsertionPoint(lines, sectionName, propertyName, propertyOrder);
+                int insertIndex = FindPropertyInsertionPoint(lines, sectionName, propertyName, PropertyOrder);
                 if (insertIndex >= 0)
                 {
                     lines.Insert(insertIndex, $"{propertyKey}={propertyValue}");
@@ -92,36 +93,11 @@ namespace ChainFileEditor.Core.Operations
             return sectionEnd + 1;
         }
         
-        private void UncommentPropertyInLines(List<string> lines, string propertyKey)
-        {
-            for (int i = 0; i < lines.Count; i++)
-            {
-                var line = lines[i].Trim();
-                if (line.StartsWith($"#{propertyKey}="))
-                {
-                    lines[i] = lines[i].Replace($"#{propertyKey}=", $"{propertyKey}=");
-                    return;
-                }
-            }
-        }
-        
-        private void CommentPropertyInLines(List<string> lines, string propertyKey)
-        {
-            for (int i = 0; i < lines.Count; i++)
-            {
-                var line = lines[i].Trim();
-                if (line.StartsWith($"{propertyKey}=") && !line.StartsWith($"#{propertyKey}="))
-                {
-                    lines[i] = lines[i].Replace($"{propertyKey}=", $"#{propertyKey}=");
-                    return;
-                }
-            }
-        }
+
         
         private void WriteWithOrderedInsertions(string filePath, ChainModel chain)
         {
             var lines = chain.RawContent.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None).ToList();
-            var projectOrder = new[] { "framework", "repository", "olap", "modeling", "depmservice", "consolidation", "appengine", "designer", "dashboards", "appstudio", "officeinteg", "administration", "content", "deployment", "tests" };
             
             // Update existing properties
             foreach (var section in chain.Sections)
@@ -143,14 +119,14 @@ namespace ChainFileEditor.Core.Operations
             
             // Add missing sections in correct order
             var existingSections = GetExistingSectionNames(lines);
-            foreach (var projectName in projectOrder)
+            foreach (var projectName in ProjectOrder)
             {
                 if (!existingSections.Contains(projectName, StringComparer.OrdinalIgnoreCase))
                 {
                     var section = chain.Sections?.FirstOrDefault(s => s.Name.Equals(projectName, StringComparison.OrdinalIgnoreCase));
                     if (section != null)
                     {
-                        InsertSectionInOrder(lines, section, projectOrder);
+                        InsertSectionInOrder(lines, section, ProjectOrder);
                     }
                 }
             }
@@ -212,8 +188,7 @@ namespace ChainFileEditor.Core.Operations
             }
             
             // Insert section properties
-            var propertyOrder = new[] { "mode", "mode.devs", "fork", "branch", "tag", "tests.unit" };
-            foreach (var propKey in propertyOrder)
+            foreach (var propKey in PropertyOrder)
             {
                 if (section.Properties.ContainsKey(propKey))
                 {
@@ -283,11 +258,8 @@ namespace ChainFileEditor.Core.Operations
 
             sb.AppendLine();
 
-            // Write sections in template order
-            var projectOrder = new[] { "framework", "repository", "olap", "modeling", "depmservice", "consolidation", "appengine", "designer", "dashboards", "appstudio", "officeinteg", "administration", "content", "deployment", "tests" };
-            
             // Write projects in correct order
-            foreach (var projectName in projectOrder)
+            foreach (var projectName in ProjectOrder)
             {
                 var section = chain.Sections?.FirstOrDefault(s => s.Name.Equals(projectName, StringComparison.OrdinalIgnoreCase));
                 if (section != null)
@@ -297,7 +269,7 @@ namespace ChainFileEditor.Core.Operations
             }
             
             // Write any remaining sections not in the standard order
-            var extraSections = chain.Sections?.Where(s => !projectOrder.Contains(s.Name, StringComparer.OrdinalIgnoreCase)).ToList();
+            var extraSections = chain.Sections?.Where(s => !ProjectOrder.Contains(s.Name, StringComparer.OrdinalIgnoreCase)).ToList();
             if (extraSections?.Count > 0)
             {
                 foreach (var section in extraSections)
@@ -312,9 +284,7 @@ namespace ChainFileEditor.Core.Operations
         private void WriteSectionProperties(StringBuilder sb, Section section)
         {
             // Write properties in specific order
-            var propertyOrder = new[] { "mode", "mode.devs", "fork", "branch", "tag", "tests.unit" };
-            
-            foreach (var propKey in propertyOrder)
+            foreach (var propKey in PropertyOrder)
             {
                 if (section.Properties.ContainsKey(propKey))
                 {
@@ -334,7 +304,7 @@ namespace ChainFileEditor.Core.Operations
             // Write any other properties not in the standard order
             foreach (var prop in section.Properties)
             {
-                if (!propertyOrder.Contains(prop.Key) && !string.IsNullOrWhiteSpace(prop.Value))
+                if (!PropertyOrder.Contains(prop.Key) && !string.IsNullOrWhiteSpace(prop.Value))
                 {
                     sb.AppendLine($"{section.Name}.{prop.Key}={prop.Value}");
                 }
