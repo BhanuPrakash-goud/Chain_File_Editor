@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using ChainFileEditor.Core.Models;
 using ChainFileEditor.Core.Configuration;
+using ChainFileEditor.Core.Constants;
 
 namespace ChainFileEditor.Core.Operations
 {
@@ -71,15 +72,15 @@ namespace ChainFileEditor.Core.Operations
             if (!string.IsNullOrWhiteSpace(chain.Global.VersionBinary))
                 return chain.Global.VersionBinary;
                 
-            var depmServiceSection = chain.Sections.FirstOrDefault(s => s.Name.Equals("depmservice", StringComparison.OrdinalIgnoreCase));
-            if (depmServiceSection?.Tag != null && depmServiceSection.Tag.StartsWith("Build_"))
+            var depmServiceSection = chain.Sections.FirstOrDefault(s => s.Name.Equals(ProjectNames.DepmService, StringComparison.OrdinalIgnoreCase));
+            if (depmServiceSection?.Tag != null && depmServiceSection.Tag.StartsWith(TagPrefixes.Build))
             {
                 var parts = depmServiceSection.Tag.Split('.');
                 if (parts.Length > 3)
                     return parts[3];
             }
             
-            return "Not found";
+            return Messages.NotFound;
         }
 
         public List<ProjectVersionInfo> AnalyzeProjectVersions(ChainModel chain)
@@ -91,10 +92,10 @@ namespace ChainFileEditor.Core.Operations
             {
                 projects.Add(new ProjectVersionInfo
                 {
-                    ProjectName = "global",
-                    PropertyType = "version.binary",
+                    ProjectName = ProjectNames.Global,
+                    PropertyType = PropertyTypes.VersionBinary,
                     CurrentValue = chain.Global.VersionBinary,
-                    Status = "Global version property",
+                    Status = Messages.GlobalVersionProperty,
                     HasVersionBinary = true
                 });
             }
@@ -103,10 +104,10 @@ namespace ChainFileEditor.Core.Operations
             {
                 projects.Add(new ProjectVersionInfo
                 {
-                    ProjectName = "global.devs",
-                    PropertyType = "version.binary",
+                    ProjectName = ProjectNames.GlobalDevs,
+                    PropertyType = PropertyTypes.VersionBinary,
                     CurrentValue = chain.Global.DevVersionBinary,
-                    Status = "Global dev version property",
+                    Status = Messages.GlobalDevVersionProperty,
                     HasVersionBinary = true
                 });
             }
@@ -121,9 +122,9 @@ namespace ChainFileEditor.Core.Operations
                     projects.Add(new ProjectVersionInfo
                     {
                         ProjectName = section.Name,
-                        PropertyType = "tag",
+                        PropertyType = PropertyTypes.Tag,
                         CurrentValue = section.Tag,
-                        Status = "Has tag",
+                        Status = Messages.HasTag,
                         HasTag = true
                     });
                 }
@@ -138,12 +139,12 @@ namespace ChainFileEditor.Core.Operations
             
             foreach (var projectName in selectedProjects)
             {
-                if (projectName == "global")
+                if (projectName == ProjectNames.Global)
                 {
                     chain.Global.VersionBinary = newVersion;
                     updated++;
                 }
-                else if (projectName == "global.devs")
+                else if (projectName == ProjectNames.GlobalDevs)
                 {
                     chain.Global.DevVersionBinary = newVersion;
                     updated++;
@@ -155,7 +156,7 @@ namespace ChainFileEditor.Core.Operations
                     {
                         if (!string.IsNullOrWhiteSpace(section.Tag))
                         {
-                            section.Tag = $"Build_12.25.10.{newVersion}";
+                            section.Tag = $"{TagFormats.BuildPrefix}{newVersion}";
                             updated++;
                         }
                     }
@@ -207,7 +208,7 @@ namespace ChainFileEditor.Core.Operations
             {
                 if (!string.IsNullOrWhiteSpace(section.Tag))
                 {
-                    section.Tag = $"Build_12.25.10.{newVersion}";
+                    section.Tag = $"{TagFormats.BuildPrefix}{newVersion}";
                     updatesCount++;
                 }
             }
@@ -234,4 +235,6 @@ namespace ChainFileEditor.Core.Operations
             return versions.ToArray();
         }
     }
+    
+
 }

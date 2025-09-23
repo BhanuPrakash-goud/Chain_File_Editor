@@ -433,8 +433,15 @@ namespace ChainFileEditor.WinForms
                 UseVisualStyleBackColor = true
             };
             selectAllBtn.Click += (s, e) => {
-                foreach (DataGridViewRow row in projectGrid.Rows)
-                    row.Cells["Select"].Value = true;
+                try
+                {
+                    foreach (DataGridViewRow row in projectGrid.Rows)
+                    {
+                        if (row?.Cells != null && row.Cells["Select"] != null)
+                            row.Cells["Select"].Value = true;
+                    }
+                }
+                catch { /* Ignore grid errors */ }
             };
 
             var clearAllBtn = new Button
@@ -445,8 +452,15 @@ namespace ChainFileEditor.WinForms
                 UseVisualStyleBackColor = true
             };
             clearAllBtn.Click += (s, e) => {
-                foreach (DataGridViewRow row in projectGrid.Rows)
-                    row.Cells["Select"].Value = false;
+                try
+                {
+                    foreach (DataGridViewRow row in projectGrid.Rows)
+                    {
+                        if (row?.Cells != null && row.Cells["Select"] != null)
+                            row.Cells["Select"].Value = false;
+                    }
+                }
+                catch { /* Ignore grid errors */ }
             };
 
             var loadCurrentBtn = new Button
@@ -569,11 +583,14 @@ namespace ChainFileEditor.WinForms
             projectsGrid.CellValueChanged += (s, e) => {
                 try
                 {
-                    if (e.RowIndex >= 0 && e.RowIndex < projectsGrid.Rows.Count)
+                    if (e.RowIndex >= 0 && e.RowIndex < projectsGrid.Rows.Count && 
+                        e.ColumnIndex >= 0 && e.ColumnIndex < projectsGrid.Columns.Count)
                     {
                         var row = projectsGrid.Rows[e.RowIndex];
-                        var project = row.Cells["Project"].Value?.ToString();
-                        var fork = row.Cells["Fork"].Value?.ToString();
+                        if (row?.Cells == null) return;
+                        
+                        var project = row.Cells["Project"]?.Value?.ToString();
+                        var fork = row.Cells["Fork"]?.Value?.ToString();
                         
                         // Auto-format fork to owner/project when fork owner is selected
                         if (e.ColumnIndex == forkCol.Index && !string.IsNullOrEmpty(fork) && !fork.Contains("/") && !string.IsNullOrEmpty(project))
@@ -600,10 +617,14 @@ namespace ChainFileEditor.WinForms
             };
 
             projectsGrid.CurrentCellDirtyStateChanged += (s, e) => {
-                if (projectsGrid.IsCurrentCellDirty)
+                try
                 {
-                    projectsGrid.CommitEdit(DataGridViewDataErrorContexts.Commit);
+                    if (projectsGrid.IsCurrentCellDirty)
+                    {
+                        projectsGrid.CommitEdit(DataGridViewDataErrorContexts.Commit);
+                    }
                 }
+                catch { /* Ignore commit errors */ }
             };
             
             projectsGrid.DataError += (s, e) => {
@@ -621,19 +642,22 @@ namespace ChainFileEditor.WinForms
                     var defaultTests = repo == "tests"; // Tests project defaults to enabled
                     
                     var rowIndex = projectsGrid.Rows.Add(true, repo, defaultMode, defaultDevMode, defaultBranch, "", defaultTests, "");
-                    var branchCell = projectsGrid.Rows[rowIndex].Cells["Branch"] as DataGridViewComboBoxCell;
-                    if (branchCell != null)
+                    if (rowIndex >= 0 && rowIndex < projectsGrid.Rows.Count)
                     {
-                        branchCell.Items.Clear();
-                        branchCell.Items.Add("");
-                        var branches = GetProjectBranches(repo);
-                        // Rule 6: Content project cannot have stage branch
-                        if (repo == "content")
+                        var branchCell = projectsGrid.Rows[rowIndex].Cells["Branch"] as DataGridViewComboBoxCell;
+                        if (branchCell != null)
                         {
-                            branches = branches.Where(b => b != "stage").ToArray();
+                            branchCell.Items.Clear();
+                            branchCell.Items.Add("");
+                            var branches = GetProjectBranches(repo);
+                            // Rule 6: Content project cannot have stage branch
+                            if (repo == "content")
+                            {
+                                branches = branches.Where(b => b != "stage").ToArray();
+                            }
+                            branchCell.Items.AddRange(branches);
+                            branchCell.Value = defaultBranch;
                         }
-                        branchCell.Items.AddRange(branches);
-                        branchCell.Value = defaultBranch;
                     }
                 }
             }
@@ -1306,17 +1330,23 @@ namespace ChainFileEditor.WinForms
             }
             var selectedProjects = new List<string>();
             
-            foreach (DataGridViewRow row in projectGrid.Rows)
+            try
             {
-                var selectValue = false;
-                if (row.Cells["Select"]?.Value is bool select)
-                    selectValue = select;
-                    
-                if (selectValue)
+                foreach (DataGridViewRow row in projectGrid.Rows)
                 {
-                    selectedProjects.Add(row.Cells["Project"]?.Value?.ToString() ?? "");
+                    if (row?.Cells == null) continue;
+                    
+                    var selectValue = false;
+                    if (row.Cells["Select"]?.Value is bool select)
+                        selectValue = select;
+                        
+                    if (selectValue)
+                    {
+                        selectedProjects.Add(row.Cells["Project"]?.Value?.ToString() ?? "");
+                    }
                 }
             }
+            catch { /* Ignore grid enumeration errors */ }
 
             if (!selectedProjects.Any())
             {
@@ -1683,6 +1713,8 @@ namespace ChainFileEditor.WinForms
                 
                 foreach (DataGridViewRow row in projectsGrid.Rows)
                 {
+                    if (row?.Cells == null) continue;
+                    
                     var includeValue = false;
                     if (row.Cells["Include"]?.Value is bool include)
                         includeValue = include;

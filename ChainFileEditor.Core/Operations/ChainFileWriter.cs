@@ -4,11 +4,16 @@ using System.Text;
 using ChainFileEditor.Core.Models;
 using System;
 using System.Collections.Generic;
+using ChainFileEditor.Core.Constants;
 
 namespace ChainFileEditor.Core.Operations
 {
     public sealed class ChainFileWriter
     {
+        private const string CommentPrefix = "#";
+        private const char PropertySeparator = '=';
+        private const string GlobalPrefix = "global.";
+        
         private static readonly string[] ProjectOrder = { "framework", "repository", "olap", "modeling", "depmservice", "consolidation", "appengine", "designer", "dashboards", "appstudio", "officeinteg", "administration", "content", "deployment", "tests" };
         private static readonly string[] PropertyOrder = { "mode", "mode.devs", "fork", "branch", "tag", "tests.unit" };
         public void WritePropertiesFile(string filePath, ChainModel chain)
@@ -112,9 +117,9 @@ namespace ChainFileEditor.Core.Operations
             // Update global properties
             if (chain.Global != null)
             {
-                UpdatePropertyInLines(lines, "global.version.binary", chain.Global.VersionBinary);
-                UpdatePropertyInLines(lines, "global.devs.version.binary", chain.Global.DevVersionBinary);
-                UpdatePropertyInLines(lines, "global.recipients", chain.Global.Recipients);
+                UpdatePropertyInLines(lines, GlobalPropertyNames.VersionBinary, chain.Global.VersionBinary);
+                UpdatePropertyInLines(lines, GlobalPropertyNames.DevVersionBinary, chain.Global.DevVersionBinary);
+                UpdatePropertyInLines(lines, GlobalPropertyNames.Recipients, chain.Global.Recipients);
             }
             
             // Add missing sections in correct order
@@ -140,7 +145,7 @@ namespace ChainFileEditor.Core.Operations
             foreach (var line in lines)
             {
                 var trimmed = line.Trim();
-                if (!trimmed.StartsWith("#") && trimmed.Contains("=") && !trimmed.StartsWith("global."))
+                if (!trimmed.StartsWith(CommentPrefix) && trimmed.Contains(PropertySeparator.ToString()) && !trimmed.StartsWith(GlobalPrefix))
                 {
                     var parts = trimmed.Split('.');
                     if (parts.Length >= 2)
@@ -237,23 +242,23 @@ namespace ChainFileEditor.Core.Operations
             var sb = new StringBuilder();
 
             // Write header comments
-            sb.AppendLine("# Feature chain configuration file");
-            sb.AppendLine("#");
-            sb.AppendLine("# JIRA: DEPM-123456");
-            sb.AppendLine("# Description: Sample");
+            sb.AppendLine(HeaderComments.FeatureChainFile);
+            sb.AppendLine(HeaderComments.Empty);
+            sb.AppendLine(HeaderComments.JiraSample);
+            sb.AppendLine(HeaderComments.DescriptionSample);
             sb.AppendLine();
 
             // Write global settings
             if (chain.Global != null)
             {
                 if (!string.IsNullOrWhiteSpace(chain.Global.VersionBinary))
-                    sb.AppendLine($"global.version.binary={chain.Global.VersionBinary}");
+                    sb.AppendLine($"{GlobalPropertyNames.VersionBinary}={chain.Global.VersionBinary}");
                 
                 if (!string.IsNullOrWhiteSpace(chain.Global.DevVersionBinary))
-                    sb.AppendLine($"global.devs.version.binary={chain.Global.DevVersionBinary}");
+                    sb.AppendLine($"{GlobalPropertyNames.DevVersionBinary}={chain.Global.DevVersionBinary}");
                 
                 if (!string.IsNullOrWhiteSpace(chain.Global.Recipients))
-                    sb.AppendLine($"global.recipients={chain.Global.Recipients}");
+                    sb.AppendLine($"{GlobalPropertyNames.Recipients}={chain.Global.Recipients}");
             }
 
             sb.AppendLine();
@@ -294,10 +299,10 @@ namespace ChainFileEditor.Core.Operations
                         sb.AppendLine($"{section.Name}.{propKey}={value}");
                     }
                 }
-                else if (propKey == "mode.devs" && !section.Properties.ContainsKey(propKey))
+                else if (propKey == PropertyNames.DevMode && !section.Properties.ContainsKey(propKey))
                 {
                     // Add commented mode.devs if not present
-                    sb.AppendLine($"#{section.Name}.mode.devs=binary");
+                    sb.AppendLine($"{CommentPrefix}{section.Name}.{PropertyNames.DevMode}={DefaultValues.BinaryMode}");
                 }
             }
             
@@ -313,4 +318,6 @@ namespace ChainFileEditor.Core.Operations
             sb.AppendLine();
         }
     }
+    
+
 }

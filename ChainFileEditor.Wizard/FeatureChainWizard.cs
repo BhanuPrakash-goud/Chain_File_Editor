@@ -6,68 +6,114 @@ using static System.Net.Mime.MediaTypeNames;
 
 namespace ChainFileEditor.Wizard
 {
-    public class FeatureChainWizard : WizardBase
+    public sealed class FeatureChainWizard : WizardBase
     {
-        public override string Name => "Feature Chain Creator";
-        public override string Description => "Create a new feature chain configuration file";
-
-        private readonly string[] _projectOrder = {
+        private const string WizardName = "Feature Chain Creator";
+        private const string WizardDescription = "Create a new feature chain configuration file";
+        private const string DefaultMode = "source";
+        private const string BinaryMode = "binary";
+        private const string IgnoreMode = "ignore";
+        private const string TrueValue = "true";
+        private const string FalseValue = "false";
+        private const string CommentPrefix = "#";
+        private const string ExitCommand = "exit";
+        private const string YesShort = "y";
+        private const string YesLong = "yes";
+        private const string NoShort = "n";
+        private const string NoLong = "no";
+        private const string TagShort = "t";
+        private const string TagLong = "tag";
+        private const string BranchShort = "b";
+        private const string BranchLong = "branch";
+        private const string AllCommand = "all";
+        private const string NoneCommand = "none";
+        private const string DevBranch = "dev";
+        private const string StageBranch = "stage";
+        private const string MainBranch = "main";
+        private const string IntegrationBranch = "integration";
+        private const string ContentProject = "content";
+        private const string TestsProject = "tests";
+        private const string DesignerProject = "designer";
+        private const string DeploymentProject = "deployment";
+        private const string FileExtension = ".properties";
+        private const string SpaceReplacement = "-";
+        private const string DefaultOutputDir = @"C:\ChainFileEditor\Tests\Chains";
+        
+        private static readonly string[] ProjectOrder = {
             "framework", "repository", "olap", "modeling", "depmservice", "consolidation",
             "appengine", "designer", "dashboards", "appstudio", "officeinteg", "administration",
             "content", "deployment", "tests"
         };
+        
+        private static readonly string[] ValidModes = { DefaultMode, BinaryMode, IgnoreMode };
+        private static readonly string[] ValidDevModes = { BinaryMode, IgnoreMode };
+        private static readonly string[] NoTestsProjects = { DesignerProject, ContentProject, DeploymentProject, TestsProject };
+        private static readonly string[] IgnoreDevModeProjects = { DesignerProject, DeploymentProject, TestsProject };
+        
+        private static readonly string[] TestSuites = { 
+            "dEPMSmoke", "dEPMRegressionSet1", "dEPMRegressionSet2", 
+            "AdhocWidget", "AdministrationService", "AppEngineService", "AppsProvisioning", 
+            "AppStudioService", "BusinessModelingServiceSet1", "BusinessModelingServiceSet2", 
+            "ConsolidationService", "ContentIntegration", "DashboardsService", "dEPMAppsUpdate", 
+            "EPMWorkflow", "FarmCreation", "FarmUpgrade", "MultiFarm", "OfficeIntegrationService", 
+            "OlapService", "OlapAPI", "SelfService", "TenantClone", "WorkforceBudgetingSet1", 
+            "WorkforceBudgetingSet2" 
+        };
+        
+        public override string Name => WizardName;
+        public override string Description => WizardDescription;
 
         public override void Execute()
         {
             ShowHeader("Feature Chain Creator Wizard");
 
-            var jiraId = PromptForInput("JIRA ID", required: true);
-            if (jiraId == "exit") return;
+            var jiraId = PromptForInput(PromptMessages.JiraId, required: true);
+            if (jiraId == ExitCommand) return;
 
-            var description = PromptForInput("Description", required: true);
-            if (description == "exit") return;
+            var description = PromptForInput(PromptMessages.Description, required: true);
+            if (description == ExitCommand) return;
 
-            var version = PromptForInput("Version", required: true);
-            if (version == "exit") return;
+            var version = PromptForInput(PromptMessages.Version, required: true);
+            if (version == ExitCommand) return;
 
-            Console.WriteLine("\nProject Configurations");
-            Console.Write("Include all projects? [y] (y/n): ");
+            Console.WriteLine(PromptMessages.ProjectConfigurations);
+            Console.Write(PromptMessages.IncludeAllProjects);
             var includeAllInput = Console.ReadLine()?.Trim().ToLower();
-            var includeAll = string.IsNullOrEmpty(includeAllInput) || includeAllInput == "y" || includeAllInput == "yes";
+            var includeAll = string.IsNullOrEmpty(includeAllInput) || includeAllInput == YesShort || includeAllInput == YesLong;
             
             var projects = new Dictionary<string, ProjectConfig>();
             var skippedProjects = new HashSet<string>();
-            var fileName = $"DEPM-{jiraId}-{description.Replace(" ", "-").ToLower()}.properties";
+            var fileName = $"DEPM-{jiraId}-{description.Replace(" ", SpaceReplacement).ToLower()}{FileExtension}";
             
             if (!includeAll)
             {
-                Console.WriteLine("\nSelect projects to configure:");
-                for (int i = 0; i < _projectOrder.Length; i++)
+                Console.WriteLine(PromptMessages.SelectProjects);
+                for (int i = 0; i < ProjectOrder.Length; i++)
                 {
-                    Console.WriteLine($"  {i + 1,2}. {_projectOrder[i]}");
+                    Console.WriteLine($"  {i + 1,2}. {ProjectOrder[i]}");
                 }
-                Console.Write("Enter project numbers to configure (1,2,5) or 'all': ");
+                Console.Write(PromptMessages.EnterProjectNumbers);
                 var selection = Console.ReadLine()?.Trim();
                 
                 var selectedProjects = new HashSet<string>();
-                if (selection?.ToLower() == "all")
+                if (selection?.ToLower() == AllCommand)
                 {
-                    selectedProjects = _projectOrder.ToHashSet();
+                    selectedProjects = ProjectOrder.ToHashSet();
                 }
                 else if (!string.IsNullOrEmpty(selection))
                 {
                     var indices = selection.Split(',', StringSplitOptions.RemoveEmptyEntries);
                     foreach (var indexStr in indices)
                     {
-                        if (int.TryParse(indexStr.Trim(), out int index) && index > 0 && index <= _projectOrder.Length)
+                        if (int.TryParse(indexStr.Trim(), out int index) && index > 0 && index <= ProjectOrder.Length)
                         {
-                            selectedProjects.Add(_projectOrder[index - 1]);
+                            selectedProjects.Add(ProjectOrder[index - 1]);
                         }
                     }
                 }
                 
                 // Mark unselected projects as skipped
-                foreach (var project in _projectOrder)
+                foreach (var project in ProjectOrder)
                 {
                     if (!selectedProjects.Contains(project))
                         skippedProjects.Add(project);
@@ -84,7 +130,7 @@ namespace ChainFileEditor.Wizard
             else
             {
                 // Configure all projects
-                foreach (var project in _projectOrder)
+                foreach (var project in ProjectOrder)
                 {
                     var config = ConfigureProject(project, version, fileName);
                     if (config == null) return;
@@ -94,8 +140,7 @@ namespace ChainFileEditor.Wizard
 
             var (enabledIntegrationTests, allIntegrationTests) = ConfigureIntegrationTests();
 
-            var outputDir = @"C:\ChainFileEditor\Tests\Chains";
-            var filePath = Path.Combine(outputDir, fileName);
+            var filePath = Path.Combine(DefaultOutputDir, fileName);
 
             GenerateFeatureChainFile(filePath, jiraId, description, version, projects, skippedProjects, enabledIntegrationTests, allIntegrationTests);
 
@@ -108,21 +153,21 @@ namespace ChainFileEditor.Wizard
             var config = new ProjectConfig { Name = project };
 
             // Mode: source(default), binary, ignore, or press Enter for default
-            Console.Write($"{project}.mode (source/binary/ignore) [source]: ");
+            Console.Write($"{project}.mode ({string.Join("/", ValidModes)}) [{DefaultMode}]: ");
             var modeInput = Console.ReadLine()?.Trim().ToLower();
-            config.Mode = string.IsNullOrEmpty(modeInput) ? "source" : 
-                         (new[] { "source", "binary", "ignore" }.Contains(modeInput) ? modeInput : "source");
+            config.Mode = string.IsNullOrEmpty(modeInput) ? DefaultMode : 
+                         (ValidModes.Contains(modeInput) ? modeInput : DefaultMode);
 
             // Dev mode: #(commented by default), binary, ignore
-            Console.Write($"{project}.mode.devs (#/binary/ignore) [#]: ");
+            Console.Write($"{project}.mode.devs ({CommentPrefix}/{string.Join("/", ValidDevModes)}) [{CommentPrefix}]: ");
             var devModeInput = Console.ReadLine()?.Trim().ToLower();
             
-            if (string.IsNullOrEmpty(devModeInput) || devModeInput == "#")
+            if (string.IsNullOrEmpty(devModeInput) || devModeInput == CommentPrefix)
             {
                 // Default or explicit comment - comment it out
-                config.DevMode = "";
+                config.DevMode = string.Empty;
             }
-            else if (new[] { "binary", "ignore" }.Contains(devModeInput))
+            else if (ValidDevModes.Contains(devModeInput))
             {
                 // Valid value entered
                 config.DevMode = devModeInput;
@@ -130,25 +175,25 @@ namespace ChainFileEditor.Wizard
             else
             {
                 // Invalid input - comment it out
-                config.DevMode = "";
+                config.DevMode = string.Empty;
             }
 
             // Fork configuration (not for content)
-            if (project != "content")
+            if (project != ContentProject)
             {
-                Console.Write("Fork (y/n) [n]: ");
+                Console.Write(PromptMessages.ForkPrompt);
                 var forkInput = Console.ReadLine()?.Trim().ToLower();
-                if (forkInput == "y" || forkInput == "yes")
+                if (forkInput == YesShort || forkInput == YesLong)
                 {
                     var knownForks = GetKnownForksForProject(project);
                     if (knownForks.Any())
                     {
-                        Console.WriteLine("Available forks:");
+                        Console.WriteLine(PromptMessages.AvailableForks);
                         for (int i = 0; i < knownForks.Count; i++)
                         {
                             Console.WriteLine($"  {i + 1}. {knownForks[i]}");
                         }
-                        Console.Write($"Select (1-{knownForks.Count}) or enter custom: ");
+                        Console.Write(string.Format(PromptMessages.SelectFork, knownForks.Count));
                         var forkChoice = Console.ReadLine()?.Trim();
                         
                         if (int.TryParse(forkChoice, out int index) && index > 0 && index <= knownForks.Count)
@@ -162,7 +207,7 @@ namespace ChainFileEditor.Wizard
                     }
                     else
                     {
-                        Console.Write("Fork name (firstname.lastname): ");
+                        Console.Write(PromptMessages.ForkName);
                         var forkName = Console.ReadLine()?.Trim();
                         if (!string.IsNullOrEmpty(forkName))
                             config.Fork = $"{forkName}/{project}";
@@ -174,7 +219,7 @@ namespace ChainFileEditor.Wizard
             Console.Write("Branch or tag (b/t) [b]: ");
             var branchOrTag = Console.ReadLine()?.Trim().ToLower();
             
-            if (branchOrTag == "t" || branchOrTag == "tag")
+            if (branchOrTag == TagShort || branchOrTag == TagLong)
             {
                 var currentDate = DateTime.Now.ToString("MM.dd.yy");
                 config.Tag = $"Build_{currentDate}.{version}";
@@ -187,22 +232,22 @@ namespace ChainFileEditor.Wizard
                 
                 config.Branch = branchInput switch
                 {
-                    "dev" => $"dev/{fileName.Replace(".properties", "")}",
-                    "stage" => "stage",
-                    "main" => "main",
-                    "" => "integration",
-                    _ => branchInput.StartsWith("integration") ? "integration" : branchInput
+                    DevBranch => $"dev/{fileName.Replace(FileExtension, string.Empty)}",
+                    StageBranch => StageBranch,
+                    MainBranch => MainBranch,
+                    "" => IntegrationBranch,
+                    _ => branchInput.StartsWith(IntegrationBranch) ? IntegrationBranch : branchInput
                 };
                 
-                if (branchInput == "dev")
+                if (branchInput == DevBranch)
                     Console.WriteLine($"  → Branch: {config.Branch}");
             }
 
             // Tests configuration
             var testsDefault = GetDefaultTestsEnabled(project);
-            Console.Write($"{project}.tests.unit (true/false) [{(testsDefault ? "true" : "false")}]: ");
+            Console.Write($"{project}.tests.unit (true/false) [{(testsDefault ? TrueValue : FalseValue)}]: ");
             var testsInput = Console.ReadLine()?.Trim().ToLower();
-            config.TestsUnit = string.IsNullOrEmpty(testsInput) ? testsDefault : testsInput == "true";
+            config.TestsUnit = string.IsNullOrEmpty(testsInput) ? testsDefault : testsInput == TrueValue;
 
             return config;
         }
@@ -212,54 +257,46 @@ namespace ChainFileEditor.Wizard
             var enabledTests = new Dictionary<string, bool>();
             var allTests = new Dictionary<string, bool>();
             
-            var testSuites = new[] { 
-                "dEPMSmoke", "dEPMRegressionSet1", "dEPMRegressionSet2", 
-                "AdhocWidget", "AdministrationService", "AppEngineService", "AppsProvisioning", 
-                "AppStudioService", "BusinessModelingServiceSet1", "BusinessModelingServiceSet2", 
-                "ConsolidationService", "ContentIntegration", "DashboardsService", "dEPMAppsUpdate", 
-                "EPMWorkflow", "FarmCreation", "FarmUpgrade", "MultiFarm", "OfficeIntegrationService", 
-                "OlapService", "OlapAPI", "SelfService", "TenantClone", "WorkforceBudgetingSet1", 
-                "WorkforceBudgetingSet2" 
-            };
+
             
             // Initialize all tests as available
-            foreach (var suite in testSuites)
+            foreach (var suite in TestSuites)
                 allTests[suite] = false;
             
             Console.WriteLine("\n=== INTEGRATION TESTS ===");
             Console.Write("Include integration tests [y/n] [y]: ");
             var includeTests = Console.ReadLine()?.Trim().ToLower();
             
-            if (string.IsNullOrEmpty(includeTests) || includeTests == "y" || includeTests == "yes")
+            if (string.IsNullOrEmpty(includeTests) || includeTests == YesShort || includeTests == YesLong)
             {
                 Console.WriteLine("\nSelect integration test suites:");
-                for (int i = 0; i < testSuites.Length; i++)
+                for (int i = 0; i < TestSuites.Length; i++)
                 {
-                    Console.WriteLine($"  {i + 1,2}. {testSuites[i]}");
+                    Console.WriteLine($"  {i + 1,2}. {TestSuites[i]}");
                 }
                 Console.Write("Enter numbers (1,2,5) or 'all' or 'none': ");
                 var selection = Console.ReadLine()?.Trim().ToLower();
                 
-                if (selection == "all")
+                if (selection == AllCommand)
                 {
-                    foreach (var suite in testSuites)
+                    foreach (var suite in TestSuites)
                     {
                         enabledTests[suite] = true;
                         allTests[suite] = true;
                     }
-                    Console.WriteLine($"  → Selected: All {testSuites.Length} test suites");
+                    Console.WriteLine($"  → Selected: All {TestSuites.Length} test suites");
                 }
-                else if (selection != "none" && !string.IsNullOrEmpty(selection))
+                else if (selection != NoneCommand && !string.IsNullOrEmpty(selection))
                 {
                     var indices = selection.Split(',', StringSplitOptions.RemoveEmptyEntries);
                     var selectedSuites = new List<string>();
                     foreach (var indexStr in indices)
                     {
-                        if (int.TryParse(indexStr.Trim(), out int index) && index > 0 && index <= testSuites.Length)
+                        if (int.TryParse(indexStr.Trim(), out int index) && index > 0 && index <= TestSuites.Length)
                         {
-                            enabledTests[testSuites[index - 1]] = true;
-                            allTests[testSuites[index - 1]] = true;
-                            selectedSuites.Add(testSuites[index - 1]);
+                            enabledTests[TestSuites[index - 1]] = true;
+                            allTests[TestSuites[index - 1]] = true;
+                            selectedSuites.Add(TestSuites[index - 1]);
                         }
                     }
                     if (selectedSuites.Any())
@@ -316,18 +353,18 @@ namespace ChainFileEditor.Wizard
             writer.WriteLine();
 
             // Projects in order
-            foreach (var projectName in _projectOrder)
+            foreach (var projectName in ProjectOrder)
             {
                 if (skippedProjects.Contains(projectName))
                 {
                     // Comment out all properties for skipped projects
-                    writer.WriteLine($"#{projectName}.mode=source");
-                    writer.WriteLine($"#{projectName}.mode.devs=binary");
-                    if (projectName != "content")
-                        writer.WriteLine($"#{projectName}.fork=<firstname.lastname>/{projectName}");
-                    writer.WriteLine($"#{projectName}.branch=integration");
-                    writer.WriteLine($"#{projectName}.tag=Build_12.22.9.{version}");
-                    writer.WriteLine($"#{projectName}.tests.unit={GetDefaultTestsEnabled(projectName).ToString().ToLower()}");
+                    writer.WriteLine($"{CommentPrefix}{projectName}.mode={DefaultMode}");
+                    writer.WriteLine($"{CommentPrefix}{projectName}.mode.devs={BinaryMode}");
+                    if (projectName != ContentProject)
+                        writer.WriteLine($"{CommentPrefix}{projectName}.fork=<firstname.lastname>/{projectName}");
+                    writer.WriteLine($"{CommentPrefix}{projectName}.branch={IntegrationBranch}");
+                    writer.WriteLine($"{CommentPrefix}{projectName}.tag=Build_12.22.9.{version}");
+                    writer.WriteLine($"{CommentPrefix}{projectName}.tests.unit={GetDefaultTestsEnabled(projectName).ToString().ToLower()}");
                     writer.WriteLine();
                     continue;
                 }
@@ -342,7 +379,7 @@ namespace ChainFileEditor.Wizard
                 if (!string.IsNullOrEmpty(project.DevMode))
                     writer.WriteLine($"{projectName}.mode.devs={project.DevMode}");
                 else
-                    writer.WriteLine($"#{projectName}.mode.devs=binary");
+                    writer.WriteLine($"{CommentPrefix}{projectName}.mode.devs={BinaryMode}");
 
                 // Fork - only write if has value
                 if (!string.IsNullOrEmpty(project.Fork))
@@ -359,10 +396,10 @@ namespace ChainFileEditor.Wizard
                 writer.WriteLine($"{projectName}.tests.unit={project.TestsUnit.ToString().ToLower()}");
 
                 // Special comments for specific projects
-                if (projectName == "content")
-                    writer.WriteLine("# Cannot have forks, only main repository can be used");
-                else if (projectName == "tests")
-                    writer.WriteLine("# Cannot use tags, only branches allowed");
+                if (projectName == ContentProject)
+                    writer.WriteLine(ProjectComments.ContentNoForks);
+                else if (projectName == TestsProject)
+                    writer.WriteLine(ProjectComments.TestsNoBranches);
 
                 writer.WriteLine();
             }
@@ -374,27 +411,20 @@ namespace ChainFileEditor.Wizard
                 foreach (var test in allIntegrationTests)
                 {
                     if (enabledIntegrationTests.ContainsKey(test.Key) && enabledIntegrationTests[test.Key])
-                        writer.WriteLine($"integration.tests.{test.Key}=true");
+                        writer.WriteLine($"integration.tests.{test.Key}={TrueValue}");
                     else
-                        writer.WriteLine($"#integration.tests.{test.Key}=false");
+                        writer.WriteLine($"{CommentPrefix}integration.tests.{test.Key}={FalseValue}");
                 }
                 writer.WriteLine();
             }
         }
 
-        private bool GetDefaultTestsEnabled(string projectName)
+        private static bool GetDefaultTestsEnabled(string projectName)
         {
-            return projectName switch
-            {
-                "designer" => false,
-                "content" => false,
-                "deployment" => false,
-                "tests" => false,
-                _ => true
-            };
+            return !NoTestsProjects.Contains(projectName);
         }
 
-        private void ApplyDefaultConfiguration(ProjectConfig config, string project, string version, string defaultFork)
+        private static void ApplyDefaultConfiguration(ProjectConfig config, string project, string version, string defaultFork)
         {
             config.Mode = GetDefaultMode(project);
             config.DevMode = GetDefaultDevMode(project);
@@ -402,45 +432,56 @@ namespace ChainFileEditor.Wizard
             config.Fork = GetDefaultFork(project) ? $"{defaultFork}/{project}" : "";
         }
 
-        private string GetDefaultMode(string projectName)
+        private static string GetDefaultMode(string projectName)
         {
-            return "source";
+            return DefaultMode;
         }
 
-        private string GetDefaultDevMode(string projectName)
+        private static string GetDefaultDevMode(string projectName)
         {
-            return projectName.ToLower() switch
-            {
-                "designer" => "ignore",
-                "deployment" => "ignore",
-                "tests" => "ignore",
-                _ => "binary"
-            };
+            return IgnoreDevModeProjects.Contains(projectName.ToLower()) ? IgnoreMode : BinaryMode;
         }
 
-        private string GetDefaultBranch(string projectName)
+        private static string GetDefaultBranch(string projectName)
         {
-            return projectName.ToLower() switch
-            {
-                "tests" => "stage",
-                _ => "integration"
-            };
+            return projectName.ToLower() == TestsProject ? StageBranch : IntegrationBranch;
         }
 
-        private bool GetDefaultFork(string projectName)
+        private static bool GetDefaultFork(string projectName)
         {
-            return projectName.ToLower() != "content";
+            return projectName.ToLower() != ContentProject;
         }
 
         private class ProjectConfig
         {
-            public string Name { get; set; } = "";
-            public string Mode { get; set; } = "";
-            public string DevMode { get; set; } = "";
-            public string Branch { get; set; } = "";
-            public string Tag { get; set; } = "";
-            public string Fork { get; set; } = "";
+            public string Name { get; set; } = string.Empty;
+            public string Mode { get; set; } = string.Empty;
+            public string DevMode { get; set; } = string.Empty;
+            public string Branch { get; set; } = string.Empty;
+            public string Tag { get; set; } = string.Empty;
+            public string Fork { get; set; } = string.Empty;
             public bool TestsUnit { get; set; } = true;
         }
+    }
+    
+    internal static class ProjectComments
+    {
+        public const string ContentNoForks = "# Cannot have forks, only main repository can be used";
+        public const string TestsNoBranches = "# Cannot use tags, only branches allowed";
+    }
+    
+    internal static class PromptMessages
+    {
+        public const string JiraId = "JIRA ID";
+        public const string Description = "Description";
+        public const string Version = "Version";
+        public const string ProjectConfigurations = "\nProject Configurations";
+        public const string IncludeAllProjects = "Include all projects? [y] (y/n): ";
+        public const string SelectProjects = "\nSelect projects to configure:";
+        public const string EnterProjectNumbers = "Enter project numbers to configure (1,2,5) or 'all': ";
+        public const string ForkPrompt = "Fork (y/n) [n]: ";
+        public const string AvailableForks = "Available forks:";
+        public const string SelectFork = "Select (1-{0}) or enter custom: ";
+        public const string ForkName = "Fork name (firstname.lastname): ";
     }
 }

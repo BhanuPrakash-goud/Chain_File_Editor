@@ -4,9 +4,14 @@ using System.Threading.Tasks;
 
 namespace ChainFileEditor.Console
 {
-    class Program
+    internal static class Program
     {
-        static async Task<int> Main(string[] args)
+        private const string ValidateCommand = "validate";
+        private const string RebaseCommand = "rebase";
+        private const string CommandPrefix = "--command=";
+        private const int SuccessExitCode = 0;
+        private const int ErrorExitCode = 1;
+        private static async Task<int> Main(string[] args)
         {
             try
             {
@@ -21,14 +26,14 @@ namespace ChainFileEditor.Console
                     
                     commandName = choice switch
                     {
-                        "1" => "validate",
-                        "2" => "rebase",
+                        "1" => ValidateCommand,
+                        "2" => RebaseCommand,
                         _ => null
                     };
                     
                     if (commandName == null)
                     {
-                        return 1;
+                        return ErrorExitCode;
                     }
                 }
                 else
@@ -37,7 +42,7 @@ namespace ChainFileEditor.Console
                     
                     if (string.IsNullOrEmpty(commandName))
                     {
-                        return 1;
+                        return ErrorExitCode;
                     }
                 }
 
@@ -45,7 +50,7 @@ namespace ChainFileEditor.Console
                 if (command == null)
                 {
                     System.Console.WriteLine($"Error: Unknown command '{commandName}'");
-                    return 1;
+                    return ErrorExitCode;
                 }
 
                 return await command.ExecuteAsync(args);
@@ -55,7 +60,7 @@ namespace ChainFileEditor.Console
                 System.Console.ForegroundColor = ConsoleColor.Red;
                 System.Console.WriteLine($"Fatal error: {ex.Message}");
                 System.Console.ResetColor();
-                return 1;
+                return ErrorExitCode;
             }
         }
 
@@ -63,9 +68,9 @@ namespace ChainFileEditor.Console
         {
             foreach (var arg in args)
             {
-                if (arg.StartsWith("--command="))
+                if (arg.StartsWith(CommandPrefix))
                 {
-                    return arg.Substring("--command=".Length);
+                    return arg.Substring(CommandPrefix.Length);
                 }
             }
             return null;
@@ -75,8 +80,8 @@ namespace ChainFileEditor.Console
         {
             return commandName.ToLower() switch
             {
-                "rebase" => new RebaseCommand(),
-                "validate" => new ValidateCommand(),
+                RebaseCommand => new Commands.RebaseCommand(),
+                ValidateCommand => new Commands.ValidateCommand(),
                 _ => null
             };
         }

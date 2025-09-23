@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using ChainFileEditor.Core.Models;
+using ChainFileEditor.Core.Constants;
 
 namespace ChainFileEditor.Core.Operations
 {
@@ -30,8 +31,8 @@ namespace ChainFileEditor.Core.Operations
                 projects.Add(new ProjectModeStatus
                 {
                     ProjectName = section.Name,
-                    CurrentMode = section.Mode ?? "source",
-                    CurrentDevMode = section.DevMode ?? "(not set)"
+                    CurrentMode = section.Mode ?? DefaultValues.SourceMode,
+                    CurrentDevMode = section.DevMode ?? Messages.NotSet
                 });
             }
             
@@ -54,11 +55,11 @@ namespace ChainFileEditor.Core.Operations
                         updatedCount++;
                     }
                     
-                    if (!string.IsNullOrWhiteSpace(kvp.Value.devMode) && kvp.Value.devMode != "(not set)")
+                    if (!string.IsNullOrWhiteSpace(kvp.Value.devMode) && kvp.Value.devMode != Messages.NotSet)
                     {
                         if (validModes.Contains(kvp.Value.devMode.ToLower()))
                             section.DevMode = kvp.Value.devMode;
-                        else if (kvp.Value.devMode == "(clear)")
+                        else if (kvp.Value.devMode == Messages.Clear)
                             section.DevMode = null;
                     }
                 }
@@ -69,7 +70,7 @@ namespace ChainFileEditor.Core.Operations
 
         public List<string> GetValidModes()
         {
-            return new List<string> { "source", "binary", "ignore" };
+            return new List<string> { ModeValues.Source, ModeValues.Binary, ModeValues.Ignore };
         }
 
         public bool SetMode(ChainModel chain, string sectionName, string mode, string? devMode = null)
@@ -94,4 +95,6 @@ namespace ChainFileEditor.Core.Operations
             return chain.Sections.Select(s => s.Name).ToArray();
         }
     }
+    
+
 }

@@ -8,6 +8,12 @@ namespace ChainFileEditor.Core.Operations
 {
     public sealed class ChainFileParser
     {
+        private const string CommentPrefix = "#";
+        private const string GlobalPrefix = "global.";
+        private const string TestsPrefix = "tests.";
+        private const string TestsRunSuffix = ".run";
+        private const char PropertySeparator = '=';
+        private const int PropertyParts = 2;
         public ChainModel ParsePropertiesFile(string filePath)
         {
             if (!File.Exists(filePath))
@@ -19,11 +25,11 @@ namespace ChainFileEditor.Core.Operations
 
             foreach (var line in lines)
             {
-                if (string.IsNullOrWhiteSpace(line) || line.TrimStart().StartsWith("#"))
+                if (string.IsNullOrWhiteSpace(line) || line.TrimStart().StartsWith(CommentPrefix))
                     continue;
 
-                var parts = line.Split('=', 2);
-                if (parts.Length == 2)
+                var parts = line.Split(PropertySeparator, PropertyParts);
+                if (parts.Length == PropertyParts)
                 {
                     properties[parts[0].Trim()] = parts[1].Trim();
                 }
@@ -39,13 +45,13 @@ namespace ChainFileEditor.Core.Operations
             var chain = new ChainModel();
 
             // Parse global settings
-            if (properties.TryGetValue("global.version.binary", out var versionBinary))
+            if (properties.TryGetValue(GlobalPropertyNames.VersionBinary, out var versionBinary))
                 chain.Global.VersionBinary = versionBinary;
             
-            if (properties.TryGetValue("global.devs.version.binary", out var devVersionBinary))
+            if (properties.TryGetValue(GlobalPropertyNames.DevVersionBinary, out var devVersionBinary))
                 chain.Global.DevVersionBinary = devVersionBinary;
             
-            if (properties.TryGetValue("global.recipients", out var recipients))
+            if (properties.TryGetValue(GlobalPropertyNames.Recipients, out var recipients))
                 chain.Global.Recipients = recipients;
 
             // Parse sections
@@ -65,9 +71,9 @@ namespace ChainFileEditor.Core.Operations
             }
 
             // Parse integration tests
-            foreach (var kvp in properties.Where(p => p.Key.StartsWith("tests.") && p.Key.EndsWith(".run")))
+            foreach (var kvp in properties.Where(p => p.Key.StartsWith(TestsPrefix) && p.Key.EndsWith(TestsRunSuffix)))
             {
-                var testSuiteName = kvp.Key.Substring(6, kvp.Key.Length - 10); // Remove "tests." and ".run"
+                var testSuiteName = kvp.Key.Substring(TestsPrefix.Length, kvp.Key.Length - TestsPrefix.Length - TestsRunSuffix.Length);
                 if (bool.TryParse(kvp.Value, out var isEnabled))
                 {
                     chain.IntegrationTests.TestSuites[testSuiteName] = isEnabled;
@@ -77,13 +83,13 @@ namespace ChainFileEditor.Core.Operations
             return chain;
         }
 
-        private HashSet<string> GetSectionNames(Dictionary<string, string> properties)
+        private static HashSet<string> GetSectionNames(Dictionary<string, string> properties)
         {
             var sections = new HashSet<string>();
             
             foreach (var key in properties.Keys)
             {
-                if (key.StartsWith("global.") || key.StartsWith("tests.")) continue;
+                if (key.StartsWith(GlobalPrefix) || key.StartsWith(TestsPrefix)) continue;
                 
                 var parts = key.Split('.');
                 if (parts.Length > 0)
@@ -92,5 +98,12 @@ namespace ChainFileEditor.Core.Operations
             
             return sections;
         }
+    }
+    
+    internal static class GlobalPropertyNames
+    {
+        public const string VersionBinary = "global.version.binary";
+        public const string DevVersionBinary = "global.devs.version.binary";
+        public const string Recipients = "global.recipients";
     }
 }

@@ -816,18 +816,25 @@ namespace ChainFileEditor.WinForms
             // Load project details
             if (projectsGrid != null)
             {
-                projectsGrid.Rows.Clear();
-                
-                foreach (var section in _currentChain.Sections)
+                try
                 {
-                    var mode = section.Properties.GetValueOrDefault("mode", "");
-                    var devMode = section.Properties.GetValueOrDefault("mode.devs", "");
-                    var branch = section.Properties.GetValueOrDefault("branch", "");
-                    var tag = section.Properties.GetValueOrDefault("tag", "");
-                    var fork = section.Properties.GetValueOrDefault("fork", "");
-                    var tests = section.Properties.GetValueOrDefault("tests.unit", "false");
+                    projectsGrid.Rows.Clear();
                     
-                    projectsGrid.Rows.Add(section.Name, mode, devMode, branch, tag, fork, tests);
+                    foreach (var section in _currentChain.Sections)
+                    {
+                        var mode = section.Properties.GetValueOrDefault("mode", "");
+                        var devMode = section.Properties.GetValueOrDefault("mode.devs", "");
+                        var branch = section.Properties.GetValueOrDefault("branch", "");
+                        var tag = section.Properties.GetValueOrDefault("tag", "");
+                        var fork = section.Properties.GetValueOrDefault("fork", "");
+                        var tests = section.Properties.GetValueOrDefault("tests.unit", "false");
+                        
+                        projectsGrid.Rows.Add(section.Name, mode, devMode, branch, tag, fork, tests);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _statusLabel.Text = $"Error loading project details: {ex.Message}";
                 }
             }
             
@@ -836,24 +843,31 @@ namespace ChainFileEditor.WinForms
             var validationResultsGrid = FindControlByName(resultsPanel, "ValidationGrid") as DataGridView;
             if (validationResultsGrid != null)
             {
-                validationResultsGrid.Rows.Clear();
-                
-                foreach (var issue in report.Issues)
+                try
                 {
-                    var lineNumber = GetLineNumberForSection(issue.SectionName);
-                    var autoFixable = issue.IsAutoFixable ? "Yes" : "No";
-                    var suggestedFix = issue.SuggestedFix ?? "";
-                    validationResultsGrid.Rows.Add(issue.Severity.ToString(), issue.RuleId, issue.SectionName, issue.Message, autoFixable, suggestedFix, lineNumber);
+                    validationResultsGrid.Rows.Clear();
+                    
+                    foreach (var issue in report.Issues)
+                    {
+                        var lineNumber = GetLineNumberForSection(issue.SectionName);
+                        var autoFixable = issue.IsAutoFixable ? "Yes" : "No";
+                        var suggestedFix = issue.SuggestedFix ?? "";
+                        validationResultsGrid.Rows.Add(issue.Severity.ToString(), issue.RuleId, issue.SectionName, issue.Message, autoFixable, suggestedFix, lineNumber);
+                    }
+                    
+                    // Add valid projects (projects without issues)
+                    var projectsWithIssues = report.Issues.Select(i => i.SectionName).Where(s => !string.IsNullOrEmpty(s)).Distinct().ToHashSet();
+                    var validProjects = _currentChain.Sections.Where(s => !projectsWithIssues.Contains(s.Name)).ToList();
+                    
+                    foreach (var project in validProjects)
+                    {
+                        var lineNumber = GetLineNumberForSection(project.Name);
+                        validationResultsGrid.Rows.Add("Valid", "N/A", project.Name, "All validation rules passed", "No", "", lineNumber);
+                    }
                 }
-                
-                // Add valid projects (projects without issues)
-                var projectsWithIssues = report.Issues.Select(i => i.SectionName).Where(s => !string.IsNullOrEmpty(s)).Distinct().ToHashSet();
-                var validProjects = _currentChain.Sections.Where(s => !projectsWithIssues.Contains(s.Name)).ToList();
-                
-                foreach (var project in validProjects)
+                catch (Exception ex)
                 {
-                    var lineNumber = GetLineNumberForSection(project.Name);
-                    validationResultsGrid.Rows.Add("Valid", "N/A", project.Name, "All validation rules passed", "No", "", lineNumber);
+                    _statusLabel.Text = $"Error loading validation results: {ex.Message}";
                 }
             }
             
@@ -1031,7 +1045,7 @@ namespace ChainFileEditor.WinForms
                 {
                     try
                     {
-                        if (row?.Cells == null) continue;
+                        if (row?.Cells == null || row.Index < 0) continue;
                         
                         var updateValue = false;
                         try
@@ -1097,7 +1111,7 @@ namespace ChainFileEditor.WinForms
                     {
                         try
                         {
-                            if (row?.Cells == null) continue;
+                            if (row?.Cells == null || row.Index < 0) continue;
                             
                             var includeValue = false;
                             try
@@ -1221,10 +1235,10 @@ namespace ChainFileEditor.WinForms
                 
                 foreach (DataGridViewRow row in grid.Rows)
                 {
-                    if (row?.Cells == null) continue;
+                    if (row?.Cells == null || row.Index < 0) continue;
                     
-                    var project = row.Cells["Project"]?.Value?.ToString();
-                    var newBranch = row.Cells["NewBranch"]?.Value?.ToString();
+                    var project = SafeGetCellValue(row, "Project", "");
+                    var newBranch = SafeGetCellValue(row, "NewBranch", "");
                     
                     if (!string.IsNullOrEmpty(project) && !string.IsNullOrEmpty(newBranch))
                     {
@@ -1286,7 +1300,7 @@ namespace ChainFileEditor.WinForms
                 {
                     try
                     {
-                        if (row?.Cells == null) continue;
+                        if (row?.Cells == null || row.Index < 0) continue;
                         
                         var project = SafeGetCellValue(row, "Project", "");
                         var mode = SafeGetCellValue(row, "Mode", "");
@@ -1452,7 +1466,10 @@ namespace ChainFileEditor.WinForms
                     return;
                     
                 var row = grid.Rows[rowIndex];
-                if (row?.Cells == null)
+                if (row?.Cells == null || row.Index < 0)
+                    return;
+                    
+                if (row.Cells["Fork"] == null)
                     return;
                     
                 var forkCell = row.Cells["Fork"] as DataGridViewComboBoxCell;
@@ -1488,11 +1505,17 @@ namespace ChainFileEditor.WinForms
         {
             try
             {
-                if (row?.Cells == null)
+                if (row?.Cells == null || row.Index < 0)
+                    return defaultValue;
+                    
+                if (row.Cells[columnName] == null)
                     return defaultValue;
                     
                 var cell = row.Cells[columnName];
-                return cell?.Value?.ToString() ?? defaultValue;
+                if (cell?.Value == null)
+                    return defaultValue;
+                    
+                return cell.Value.ToString() ?? defaultValue;
             }
             catch
             {

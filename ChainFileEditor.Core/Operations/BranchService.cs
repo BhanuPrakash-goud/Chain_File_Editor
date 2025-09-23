@@ -2,6 +2,7 @@ using ChainFileEditor.Core.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using ChainFileEditor.Core.Constants;
 
 namespace ChainFileEditor.Core.Operations
 {
@@ -21,7 +22,7 @@ namespace ChainFileEditor.Core.Operations
 
         public List<BranchInfo> GetBranchTypesForProject(string projectName)
         {
-            var branches = new List<string> { "main", "develop", "stage", "integration", "feature/example" };
+            var branches = new List<string> { BranchNames.Main, BranchNames.Develop, BranchNames.Stage, BranchNames.Integration, BranchNames.FeatureExample };
             var branchInfos = new List<BranchInfo>();
             
             foreach (var branch in branches)
@@ -56,8 +57,8 @@ namespace ChainFileEditor.Core.Operations
                 projects.Add(new ProjectBranchStatus
                 {
                     ProjectName = section.Name,
-                    CurrentBranch = section.Branch ?? "(no branch)",
-                    Status = hasBranch ? "Has Branch" : "No Branch",
+                    CurrentBranch = section.Branch ?? Messages.NoBranch,
+                    Status = hasBranch ? Messages.HasBranch : Messages.NoBranch,
                     HasBranch = hasBranch
                 });
             }
@@ -76,8 +77,8 @@ namespace ChainFileEditor.Core.Operations
                 {
                     section.Branch = kvp.Value;
                     // Clear tag when setting branch
-                    if (section.Properties.ContainsKey("tag"))
-                        section.Properties.Remove("tag");
+                    if (section.Properties.ContainsKey(PropertyNames.Tag))
+                        section.Properties.Remove(PropertyNames.Tag);
                     updatedCount++;
                 }
             }
@@ -87,31 +88,33 @@ namespace ChainFileEditor.Core.Operations
 
         private string GetBranchType(string branchName)
         {
-            if (branchName == "main" || branchName == "master") return "Main";
-            if (branchName == "develop") return "Development";
-            if (branchName.StartsWith("feature/")) return "Feature";
-            if (branchName.StartsWith("hotfix/")) return "Hotfix";
-            if (branchName.StartsWith("release/")) return "Release";
-            if (branchName.StartsWith("bugfix/")) return "Bugfix";
-            if (branchName.StartsWith("personal/")) return "Personal";
-            if (branchName.StartsWith("team/")) return "Team";
-            return "Other";
+            if (branchName == BranchNames.Main || branchName == BranchNames.Master) return BranchTypes.Main;
+            if (branchName == BranchNames.Develop) return BranchTypes.Development;
+            if (branchName.StartsWith(BranchPrefixes.Feature)) return BranchTypes.Feature;
+            if (branchName.StartsWith(BranchPrefixes.Hotfix)) return BranchTypes.Hotfix;
+            if (branchName.StartsWith(BranchPrefixes.Release)) return BranchTypes.Release;
+            if (branchName.StartsWith(BranchPrefixes.Bugfix)) return BranchTypes.Bugfix;
+            if (branchName.StartsWith(BranchPrefixes.Personal)) return BranchTypes.Personal;
+            if (branchName.StartsWith(BranchPrefixes.Team)) return BranchTypes.Team;
+            return BranchTypes.Other;
         }
 
         private string GetBranchDescription(string branchName, string branchType)
         {
             return branchType switch
             {
-                "Main" => "Production-ready code",
-                "Development" => "Integration branch for features",
-                "Feature" => "New feature development",
-                "Hotfix" => "Critical production fixes",
-                "Release" => "Release preparation",
-                "Bugfix" => "Bug fixes",
-                "Personal" => "Personal development branch",
-                "Team" => "Team collaboration branch",
-                _ => "Custom branch"
+                BranchTypes.Main => BranchDescriptions.Main,
+                BranchTypes.Development => BranchDescriptions.Development,
+                BranchTypes.Feature => BranchDescriptions.Feature,
+                BranchTypes.Hotfix => BranchDescriptions.Hotfix,
+                BranchTypes.Release => BranchDescriptions.Release,
+                BranchTypes.Bugfix => BranchDescriptions.Bugfix,
+                BranchTypes.Personal => BranchDescriptions.Personal,
+                BranchTypes.Team => BranchDescriptions.Team,
+                _ => BranchDescriptions.Custom
             };
         }
     }
+    
+
 }

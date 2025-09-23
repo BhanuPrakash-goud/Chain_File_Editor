@@ -4,18 +4,33 @@ using System.Linq;
 using ChainFileEditor.Core.Models;
 using ChainFileEditor.Core.Validation;
 using ChainFileEditor.Core.Configuration;
+using ChainFileEditor.Core.Constants;
 
 namespace ChainFileEditor.Core.Operations
 {
-    public class AutoFixService
+    public sealed class AutoFixService
     {
+        private static readonly string[] ValidModes = { "source", "binary", "ignore" };
+        private static readonly string[] ValidDevModes = { "binary", "ignore", "source" };
+        private static readonly string[] ProjectOrder = { "framework", "repository", "olap", "modeling", "depmservice", "consolidation", "appengine", "designer", "dashboards", "appstudio", "officeinteg", "administration", "content", "deployment", "tests" };
+        
+        private const string DefaultMode = "source";
+        private const string DefaultDevMode = "binary";
+        private const string DefaultBranch = "integration";
+        private const string DefaultVersion = "10013";
+        private const string StageBranch = "stage";
+        private const string IgnoreMode = "ignore";
+        private const string TrueValue = "true";
+        private const string FalseValue = "false";
+        private const string ForkSeparator = "/";
+        
         private readonly ChainReorderService _reorderService = new ChainReorderService();
         public int ApplyAutoFixes(ChainModel chain, List<ValidationIssue> fixableIssues)
         {
             int fixedCount = 0;
             
             // Handle RequiredProjects issues by adding all missing projects at once
-            var requiredProjectsIssues = fixableIssues.Where(i => i.RuleId == "RequiredProjects").ToList();
+            var requiredProjectsIssues = fixableIssues.Where(i => i.RuleId == ValidationRuleIds.RequiredProjects).ToList();
             if (requiredProjectsIssues.Count > 0)
             {
                 if (FixAllMissingProjects(chain))
@@ -23,7 +38,7 @@ namespace ChainFileEditor.Core.Operations
             }
 
             // Handle other auto-fixable issues
-            foreach (var issue in fixableIssues.Where(i => i.IsAutoFixable && i.RuleId != "RequiredProjects"))
+            foreach (var issue in fixableIssues.Where(i => i.IsAutoFixable && i.RuleId != ValidationRuleIds.RequiredProjects))
             {
                 if (ApplyFix(chain, issue))
                     fixedCount++;
@@ -36,37 +51,23 @@ namespace ChainFileEditor.Core.Operations
         {
             try
             {
-                switch (issue.RuleId)
+                return issue.RuleId switch
                 {
-                    case "RequiredProjects":
-                        return FixAllMissingProjects(chain);
-                    case "ModeRequired":
-                        return FixMissingMode(chain, issue.SectionName);
-                    case "ModeValidation":
-                        return FixInvalidMode(chain, issue.SectionName);
-                    case "BranchOrTag":
-                        return FixBranchOrTag(chain, issue.SectionName, issue.Message);
-                    case "BranchOrTagRequired":
-                        return FixMissingBranchOrTag(chain, issue.SectionName);
-                    case "ForkValidation":
-                        return FixInvalidFork(chain, issue.SectionName);
-                    case "ContentNotStage":
-                        return FixContentStageBranch(chain, issue.SectionName);
-                    case "TestsPreferBranch":
-                        return FixTestsTagToBranch(chain, issue.SectionName);
-                    case "DevModeOverride":
-                        return FixDevModeOverride(chain, issue.SectionName);
-                    case "GlobalVersionWhenBinary":
-                        return FixMissingGlobalVersion(chain);
-                    case "VersionRange":
-                        return FixVersionRange(chain, issue.SectionName);
-                    case "FeatureForkRecommendation":
-                        return FixFeatureForkRecommendation(chain, issue.SectionName);
-                    case "DevModeValidation":
-                        return FixInvalidDevMode(chain, issue.SectionName);
-                    default:
-                        return false;
-                }
+                    ValidationRuleIds.RequiredProjects => FixAllMissingProjects(chain),
+                    ValidationRuleIds.ModeRequired => FixMissingMode(chain, issue.SectionName),
+                    ValidationRuleIds.ModeValidation => FixInvalidMode(chain, issue.SectionName),
+                    ValidationRuleIds.BranchOrTag => FixBranchOrTag(chain, issue.SectionName, issue.Message),
+                    ValidationRuleIds.BranchOrTagRequired => FixMissingBranchOrTag(chain, issue.SectionName),
+                    ValidationRuleIds.ForkValidation => FixInvalidFork(chain, issue.SectionName),
+                    ValidationRuleIds.ContentNotStage => FixContentStageBranch(chain, issue.SectionName),
+                    ValidationRuleIds.TestsPreferBranch => FixTestsTagToBranch(chain, issue.SectionName),
+                    ValidationRuleIds.DevModeOverride => FixDevModeOverride(chain, issue.SectionName),
+                    ValidationRuleIds.GlobalVersionWhenBinary => FixMissingGlobalVersion(chain),
+                    ValidationRuleIds.VersionRange => FixVersionRange(chain, issue.SectionName),
+                    ValidationRuleIds.FeatureForkRecommendation => FixFeatureForkRecommendation(chain, issue.SectionName),
+                    ValidationRuleIds.DevModeValidation => FixInvalidDevMode(chain, issue.SectionName),
+                    _ => false
+                };
             }
             catch
             {
@@ -74,10 +75,10 @@ namespace ChainFileEditor.Core.Operations
             }
         }
 
-        private string ExtractProjectNameFromMessage(string message)
+        private static string ExtractProjectNameFromMessage(string message)
         {
             // Extract project name from "Required project 'projectname' is missing from chain"
-            var match = System.Text.RegularExpressions.Regex.Match(message, @"'([^']+)'.*is missing");
+            var match = System.Text.RegularExpressions.Regex.Match(message, RegexPatterns.ProjectNameExtraction);
             return match.Success ? match.Groups[1].Value : null;
         }
 
@@ -88,10 +89,10 @@ namespace ChainFileEditor.Core.Operations
             var section = chain.Sections?.FirstOrDefault(s => s.Name.Equals(sectionName, StringComparison.OrdinalIgnoreCase));
             if (section?.Properties != null)
             {
-                var mode = section.Properties.GetValueOrDefault("mode", "");
+                var mode = section.Properties.GetValueOrDefault(PropertyNames.Mode, string.Empty);
                 if (string.IsNullOrWhiteSpace(mode))
                 {
-                    section.Properties["mode"] = "source";
+                    section.Properties[PropertyNames.Mode] = DefaultMode;
                     return true;
                 }
             }
@@ -103,13 +104,13 @@ namespace ChainFileEditor.Core.Operations
             if (string.IsNullOrEmpty(sectionName)) return false;
             
             var section = chain.Sections?.FirstOrDefault(s => s.Name.Equals(sectionName, StringComparison.OrdinalIgnoreCase));
-            if (section?.Properties != null && section.Properties.ContainsKey("tag"))
+            if (section?.Properties != null && section.Properties.ContainsKey(PropertyNames.Tag))
             {
-                section.Properties.Remove("tag");
-                if (!section.Properties.ContainsKey("branch"))
+                section.Properties.Remove(PropertyNames.Tag);
+                if (!section.Properties.ContainsKey(PropertyNames.Branch))
                 {
                     // Use stage branch for tests project per ValidationConfig.json
-                    section.Properties["branch"] = "stage";
+                    section.Properties[PropertyNames.Branch] = StageBranch;
                 }
                 return true;
             }
@@ -121,9 +122,9 @@ namespace ChainFileEditor.Core.Operations
             if (string.IsNullOrEmpty(sectionName)) return false;
             
             var section = chain.Sections?.FirstOrDefault(s => s.Name.Equals(sectionName, StringComparison.OrdinalIgnoreCase));
-            if (section?.Properties != null && section.Properties.ContainsKey("mode.devs") && !section.Properties.ContainsKey("mode"))
+            if (section?.Properties != null && section.Properties.ContainsKey(PropertyNames.DevMode) && !section.Properties.ContainsKey(PropertyNames.Mode))
             {
-                section.Properties["mode"] = "source";
+                section.Properties[PropertyNames.Mode] = DefaultMode;
                 return true;
             }
             return false;
@@ -139,16 +140,16 @@ namespace ChainFileEditor.Core.Operations
             // Set valid integration version range (10000-19999)
             if (string.IsNullOrEmpty(chain.Global.VersionBinary))
             {
-                chain.Global.VersionBinary = "10013";
+                chain.Global.VersionBinary = DefaultVersion;
                 return true;
             }
             
             // Validate existing version is in valid range
             if (int.TryParse(chain.Global.VersionBinary, out var version))
             {
-                if (version < 10000 || version > 39999)
+                if (version < VersionRanges.MinVersion || version > VersionRanges.MaxVersion)
                 {
-                    chain.Global.VersionBinary = "10013";
+                    chain.Global.VersionBinary = DefaultVersion;
                     return true;
                 }
             }
@@ -163,33 +164,33 @@ namespace ChainFileEditor.Core.Operations
             var section = chain.Sections?.FirstOrDefault(s => s.Name.Equals(sectionName, StringComparison.OrdinalIgnoreCase));
             if (section?.Properties == null) return false;
 
-            var hasBranch = section.Properties.ContainsKey("branch") && !string.IsNullOrWhiteSpace(section.Properties["branch"]);
-            var hasTag = section.Properties.ContainsKey("tag") && !string.IsNullOrWhiteSpace(section.Properties["tag"]);
+            var hasBranch = section.Properties.ContainsKey(PropertyNames.Branch) && !string.IsNullOrWhiteSpace(section.Properties[PropertyNames.Branch]);
+            var hasTag = section.Properties.ContainsKey(PropertyNames.Tag) && !string.IsNullOrWhiteSpace(section.Properties[PropertyNames.Tag]);
 
             if (hasBranch && hasTag)
             {
                 // Remove tag, keep branch (branches preferred for development)
-                section.Properties.Remove("tag");
+                section.Properties.Remove(PropertyNames.Tag);
                 return true;
             }
             else if (!hasBranch && !hasTag)
             {
                 // Add default branch - integration for most projects
-                section.Properties["branch"] = "integration";
+                section.Properties[PropertyNames.Branch] = DefaultBranch;
                 return true;
             }
             return false;
         }
 
-        private string GetDefaultBranch(string projectName)
+        private static string GetDefaultBranch(string projectName)
         {
             return projectName.ToLower() switch
             {
-                "content" => "integration",
-                "deployment" => "integration", 
-                "tests" => "stage",
-                "designer" => "integration",
-                _ => "integration"
+                ProjectNames.Content => DefaultBranch,
+                ProjectNames.Deployment => DefaultBranch,
+                ProjectNames.Tests => StageBranch,
+                ProjectNames.Designer => DefaultBranch,
+                _ => DefaultBranch
             };
         }
 
@@ -198,9 +199,9 @@ namespace ChainFileEditor.Core.Operations
             if (string.IsNullOrEmpty(sectionName)) return false;
             
             var section = chain.Sections?.FirstOrDefault(s => s.Name.Equals(sectionName, StringComparison.OrdinalIgnoreCase));
-            if (section?.Properties != null && section.Properties.GetValueOrDefault("branch", "") == "stage")
+            if (section?.Properties != null && section.Properties.GetValueOrDefault(PropertyNames.Branch, string.Empty) == StageBranch)
             {
-                section.Properties["branch"] = "integration";
+                section.Properties[PropertyNames.Branch] = DefaultBranch;
                 return true;
             }
             return false;
@@ -213,12 +214,12 @@ namespace ChainFileEditor.Core.Operations
             var section = chain.Sections?.FirstOrDefault(s => s.Name.Equals(sectionName, StringComparison.OrdinalIgnoreCase));
             if (section?.Properties == null) return false;
 
-            var hasBranch = section.Properties.ContainsKey("branch") && !string.IsNullOrWhiteSpace(section.Properties["branch"]);
-            var hasTag = section.Properties.ContainsKey("tag") && !string.IsNullOrWhiteSpace(section.Properties["tag"]);
+            var hasBranch = section.Properties.ContainsKey(PropertyNames.Branch) && !string.IsNullOrWhiteSpace(section.Properties[PropertyNames.Branch]);
+            var hasTag = section.Properties.ContainsKey(PropertyNames.Tag) && !string.IsNullOrWhiteSpace(section.Properties[PropertyNames.Tag]);
 
             if (!hasBranch && !hasTag)
             {
-                section.Properties["branch"] = "integration";
+                section.Properties[PropertyNames.Branch] = DefaultBranch;
                 return true;
             }
             return false;
@@ -229,12 +230,12 @@ namespace ChainFileEditor.Core.Operations
             if (string.IsNullOrEmpty(sectionName)) return false;
             
             var section = chain.Sections?.FirstOrDefault(s => s.Name.Equals(sectionName, StringComparison.OrdinalIgnoreCase));
-            if (section?.Properties != null && section.Properties.ContainsKey("fork"))
+            if (section?.Properties != null && section.Properties.ContainsKey(PropertyNames.Fork))
             {
-                var fork = section.Properties["fork"];
-                if (!string.IsNullOrEmpty(fork) && !fork.Contains("/"))
+                var fork = section.Properties[PropertyNames.Fork];
+                if (!string.IsNullOrEmpty(fork) && !fork.Contains(ForkSeparator))
                 {
-                    section.Properties.Remove("fork");
+                    section.Properties.Remove(PropertyNames.Fork);
                     return true;
                 }
             }
@@ -247,9 +248,9 @@ namespace ChainFileEditor.Core.Operations
             
             if (!string.IsNullOrEmpty(chain.Global.VersionBinary) && int.TryParse(chain.Global.VersionBinary, out var version))
             {
-                if (version < 10000 || version > 30000)
+                if (version < VersionRanges.MinVersion || version > VersionRanges.StageMaxVersion)
                 {
-                    chain.Global.VersionBinary = "20013";
+                    chain.Global.VersionBinary = DefaultVersion;
                     return true;
                 }
             }
@@ -263,8 +264,8 @@ namespace ChainFileEditor.Core.Operations
             var section = chain.Sections?.FirstOrDefault(s => s.Name.Equals(sectionName, StringComparison.OrdinalIgnoreCase));
             if (section?.Properties != null)
             {
-                var branch = section.Properties.GetValueOrDefault("branch", "");
-                if (branch.StartsWith("dev/DEPM-") && string.IsNullOrEmpty(section.Properties.GetValueOrDefault("fork", "")))
+                var branch = section.Properties.GetValueOrDefault(PropertyNames.Branch, string.Empty);
+                if (branch.StartsWith(BranchPrefixes.DevDepm) && string.IsNullOrEmpty(section.Properties.GetValueOrDefault(PropertyNames.Fork, string.Empty)))
                 {
                     // Don't auto-add fork as it requires user decision, just return false
                     return false;
@@ -280,12 +281,10 @@ namespace ChainFileEditor.Core.Operations
             var section = chain.Sections?.FirstOrDefault(s => s.Name.Equals(sectionName, StringComparison.OrdinalIgnoreCase));
             if (section?.Properties != null)
             {
-                var mode = section.Properties.GetValueOrDefault("mode", "");
-                var validModes = new[] { "source", "binary", "ignore" };
-                
-                if (string.IsNullOrWhiteSpace(mode) || !validModes.Contains(mode, StringComparer.OrdinalIgnoreCase))
+                var mode = section.Properties.GetValueOrDefault(PropertyNames.Mode, string.Empty);
+                if (string.IsNullOrWhiteSpace(mode) || !ValidModes.Contains(mode, StringComparer.OrdinalIgnoreCase))
                 {
-                    section.Properties["mode"] = "source";
+                    section.Properties[PropertyNames.Mode] = DefaultMode;
                     return true;
                 }
             }
@@ -306,8 +305,7 @@ namespace ChainFileEditor.Core.Operations
             var newSection = CreateProjectSection(projectName);
             
             // Insert in correct position based on template order
-            var projectOrder = new[] { "framework", "repository", "olap", "modeling", "depmservice", "consolidation", "appengine", "designer", "dashboards", "appstudio", "officeinteg", "administration", "content", "deployment", "tests" };
-            var targetIndex = Array.IndexOf(projectOrder, projectName.ToLower());
+            var targetIndex = Array.IndexOf(ProjectOrder, projectName.ToLower());
             
             if (targetIndex >= 0)
             {
@@ -315,7 +313,7 @@ namespace ChainFileEditor.Core.Operations
                 int insertIndex = 0;
                 for (int i = 0; i < chain.Sections.Count; i++)
                 {
-                    var currentIndex = Array.IndexOf(projectOrder, chain.Sections[i].Name.ToLower());
+                    var currentIndex = Array.IndexOf(ProjectOrder, chain.Sections[i].Name.ToLower());
                     if (currentIndex < 0 || currentIndex > targetIndex)
                         break;
                     insertIndex = i + 1;
@@ -337,9 +335,8 @@ namespace ChainFileEditor.Core.Operations
                 chain.Sections = new List<Section>();
 
             // Use the same project order as the template
-            var projectOrder = new[] { "framework", "repository", "olap", "modeling", "depmservice", "consolidation", "appengine", "designer", "dashboards", "appstudio", "officeinteg", "administration", "content", "deployment", "tests" };
             var existingProjects = chain.Sections.Select(s => s.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
-            var missingProjects = projectOrder.Where(p => !existingProjects.Contains(p)).ToList();
+            var missingProjects = ProjectOrder.Where(p => !existingProjects.Contains(p)).ToList();
 
             // Add missing projects
             foreach (var projectName in missingProjects)
@@ -376,35 +373,20 @@ namespace ChainFileEditor.Core.Operations
             // Set default configuration based on template with validation
             switch (projectName.ToLower())
             {
-                case "content":
-                    newSection.Properties["mode"] = "source";
-                    newSection.Properties["mode.devs"] = "binary";
-                    newSection.Properties["branch"] = "integration";
-                    newSection.Properties["tests.unit"] = "false";
+                case ProjectNames.Content:
+                    SetProjectProperties(newSection, DefaultMode, DefaultDevMode, DefaultBranch, FalseValue);
                     break;
-                case "deployment":
-                    newSection.Properties["mode"] = "source";
-                    newSection.Properties["mode.devs"] = "ignore";
-                    newSection.Properties["branch"] = "integration";
-                    newSection.Properties["tests.unit"] = "false";
+                case ProjectNames.Deployment:
+                    SetProjectProperties(newSection, DefaultMode, IgnoreMode, DefaultBranch, FalseValue);
                     break;
-                case "tests":
-                    newSection.Properties["mode"] = "source";
-                    newSection.Properties["mode.devs"] = "ignore";
-                    newSection.Properties["branch"] = "stage";
-                    newSection.Properties["tests.unit"] = "false";
+                case ProjectNames.Tests:
+                    SetProjectProperties(newSection, DefaultMode, IgnoreMode, StageBranch, FalseValue);
                     break;
-                case "designer":
-                    newSection.Properties["mode"] = "source";
-                    newSection.Properties["mode.devs"] = "ignore";
-                    newSection.Properties["branch"] = "integration";
-                    newSection.Properties["tests.unit"] = "false";
+                case ProjectNames.Designer:
+                    SetProjectProperties(newSection, DefaultMode, IgnoreMode, DefaultBranch, FalseValue);
                     break;
                 default:
-                    newSection.Properties["mode"] = "source";
-                    newSection.Properties["mode.devs"] = "binary";
-                    newSection.Properties["branch"] = "integration";
-                    newSection.Properties["tests.unit"] = "true";
+                    SetProjectProperties(newSection, DefaultMode, DefaultDevMode, DefaultBranch, TrueValue);
                     break;
             }
 
@@ -420,12 +402,10 @@ namespace ChainFileEditor.Core.Operations
             var section = chain.Sections?.FirstOrDefault(s => s.Name.Equals(sectionName, StringComparison.OrdinalIgnoreCase));
             if (section?.Properties != null)
             {
-                var devMode = section.Properties.GetValueOrDefault("mode.devs", "");
-                var validDevModes = new[] { "binary", "ignore", "source" };
-                
-                if (!string.IsNullOrEmpty(devMode) && !validDevModes.Contains(devMode, StringComparer.OrdinalIgnoreCase))
+                var devMode = section.Properties.GetValueOrDefault(PropertyNames.DevMode, string.Empty);
+                if (!string.IsNullOrEmpty(devMode) && !ValidDevModes.Contains(devMode, StringComparer.OrdinalIgnoreCase))
                 {
-                    section.Properties["mode.devs"] = "binary";
+                    section.Properties[PropertyNames.DevMode] = DefaultDevMode;
                     return true;
                 }
             }
@@ -435,23 +415,32 @@ namespace ChainFileEditor.Core.Operations
         private void ValidateCreatedSection(Section section)
         {
             // Ensure mode is valid
-            var validModes = new[] { "source", "binary", "ignore" };
-            if (!validModes.Contains(section.Properties.GetValueOrDefault("mode", "")))
-                section.Properties["mode"] = "source";
+            if (!ValidModes.Contains(section.Properties.GetValueOrDefault(PropertyNames.Mode, string.Empty)))
+                section.Properties[PropertyNames.Mode] = DefaultMode;
 
             // Ensure dev mode is valid
-            var validDevModes = new[] { "", "binary", "ignore", "source" };
-            if (!validDevModes.Contains(section.Properties.GetValueOrDefault("mode.devs", "")))
-                section.Properties["mode.devs"] = "binary";
+            var validDevModesWithEmpty = new[] { string.Empty }.Concat(ValidDevModes).ToArray();
+            if (!validDevModesWithEmpty.Contains(section.Properties.GetValueOrDefault(PropertyNames.DevMode, string.Empty)))
+                section.Properties[PropertyNames.DevMode] = DefaultDevMode;
 
             // Ensure branch is set
-            if (string.IsNullOrWhiteSpace(section.Properties.GetValueOrDefault("branch", "")))
-                section.Properties["branch"] = "integration";
+            if (string.IsNullOrWhiteSpace(section.Properties.GetValueOrDefault(PropertyNames.Branch, string.Empty)))
+                section.Properties[PropertyNames.Branch] = DefaultBranch;
 
             // Ensure tests.unit is boolean
-            var testsValue = section.Properties.GetValueOrDefault("tests.unit", "false");
-            if (testsValue != "true" && testsValue != "false")
-                section.Properties["tests.unit"] = "true";
+            var testsValue = section.Properties.GetValueOrDefault(PropertyNames.TestsUnit, FalseValue);
+            if (testsValue != TrueValue && testsValue != FalseValue)
+                section.Properties[PropertyNames.TestsUnit] = TrueValue;
+        }
+        
+        private static void SetProjectProperties(Section section, string mode, string devMode, string branch, string testsUnit)
+        {
+            section.Properties[PropertyNames.Mode] = mode;
+            section.Properties[PropertyNames.DevMode] = devMode;
+            section.Properties[PropertyNames.Branch] = branch;
+            section.Properties[PropertyNames.TestsUnit] = testsUnit;
         }
     }
+    
+
 }
